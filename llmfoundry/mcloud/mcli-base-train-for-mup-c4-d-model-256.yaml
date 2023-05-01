@@ -24,10 +24,7 @@ command: |
     eval_first=True \
     tokenizer_name=gpt2 \
     train_loader.dataset.split=train \
-    eval_loader.dataset.split=val \
-    save_interval=1000ba \
-    save_num_checkpoints_to_keep=1 \
-    save_folder=oci://mosaicml-internal-checkpoints/sasha/hparam_search/{run_name}/checkpoints
+    eval_loader.dataset.split=val
 
 image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 

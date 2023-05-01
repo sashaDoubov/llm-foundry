@@ -68,7 +68,7 @@ parameters:
     attn_clip_qkv: 6
     mup:
       save_shapes: False
-      load_path: oci://mosaicml-internal-checkpoints/sasha/mup_shape_pkls/40m_param_proxy_model_apr_27_23_alibi.pickle
+      load_path: oci://mosaicml-internal-checkpoints/sasha/mup_shape_pkls/40m_param_proxy_model_may_1_23_alibi.pickle
       # embed_scale: 1.0
 
   # Tokenizer

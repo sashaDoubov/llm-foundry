@@ -3,7 +3,7 @@ integrations:
   git_repo: sashaDoubov/llm-foundry
   git_branch: sasha/mup # use your branch
   # git_commit: # OR use your commit hash
-  pip_install: -e .[llm]
+  pip_install: -e .[gpu]
   ssh_clone: false # Should be true if using a private repo
 - integration_type: pip_packages
   # Install muP from main

@@ -33,7 +33,7 @@ from llmfoundry.common.text_data import build_text_dataloader
 
 Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
-from examples.common.mup_helpers import GetActivationNorms
+from llmfoundry.common.mup_helpers import GetActivationNorms
 
 from mup import optim
 

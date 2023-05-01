@@ -32,7 +32,7 @@ image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 
 gpu_num: 8
 # gpu_type: a100_40gb
-cluster: r1z2 # replace with your cluster here!
+cluster: r1z1 # replace with your cluster here!
 
 scheduling:
   priority: low

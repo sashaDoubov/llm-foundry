@@ -1,5 +1,5 @@
 set -e
-source /mnt/workdisk/sasha/examples/venv-llm/bin/activate
+source /mnt/workdisk/sasha/llm-foundry/llm-foundry-env/bin/activate
 source /secrets/secrets.env
 for d_model in 256 512 1024 2048 
 do

@@ -1,6 +1,6 @@
 set -e
 set -o xtrace
-source /mnt/workdisk/sasha/examples/venv-llm/bin/activate
+source /mnt/workdisk/sasha/llm-foundry/llm-foundry-env/bin/activate
 source /secrets/secrets.env
 for d_model in 192 384 768
 do

@@ -33,6 +33,9 @@ from llmfoundry.common.text_data import build_text_dataloader
 
 Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
+from examples.common.mup_helpers import GetActivationNorms
+
+from mup import optim
 
 def build_callback(name, kwargs):
     if name == 'lr_monitor':
@@ -50,6 +53,8 @@ def build_callback(name, kwargs):
     elif name == 'optimizer_monitor':
         return OptimizerMonitor(log_optimizer_metrics=kwargs.get(
             'log_optimizer_metrics', True),)
+    elif name == 'mup_activation_norms':
+        return GetActivationNorms()
     elif name == 'health_checker':
         return HealthChecker(**kwargs)
     elif name == 'generate_callback':
@@ -96,6 +101,23 @@ def build_optimizer(cfg, model):
                               betas=cfg.betas,
                               eps=cfg.eps,
                               weight_decay=cfg.weight_decay)
+    elif cfg.name == 'mup_decoupled_adamw':
+        return optim.MuAdam(
+            model.parameters(),
+            impl=DecoupledAdamW,
+            decoupled_wd=True,
+            lr=cfg.lr,
+            betas=cfg.betas,
+            eps=cfg.eps,
+            weight_decay=cfg.weight_decay)
+    elif cfg.name == 'mup_decoupled_lionw':
+        return optim.MuAdam(
+            model.parameters(),
+            impl=DecoupledLionW,
+            decoupled_wd=True,
+            lr=cfg.lr,
+            betas=cfg.betas,
+            weight_decay=cfg.weight_decay)
     elif cfg.name == 'decoupled_lionw':
         return DecoupledLionW(model.parameters(),
                               lr=cfg.lr,

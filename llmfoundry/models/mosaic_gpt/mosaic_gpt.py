@@ -33,6 +33,7 @@ from llmfoundry.models.utils import (MODEL_INIT_REGISTRY,
 
 Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
+from mup import MuSharedReadout
 
 class MosaicGPT(PreTrainedModel):
     config_class = MosaicGPTConfig
@@ -53,10 +54,20 @@ class MosaicGPT(PreTrainedModel):
                 f'Requested norm type ({config.norm_type}) is not implemented within this repo (Options: {norm_options}).'
             )
         norm_class = NORM_CLASS_REGISTRY[config.norm_type.lower()]
+        self.mup = config.mup
 
         # CogView (https://arxiv.org/abs/2105.13290) and GLM-130B (https://arxiv.org/abs/2210.02414)
         # both report this helping with stabilizing training
         self.embedding_fraction = config.embedding_fraction
+
+
+        if self.mup:
+            print("overriding softmax scale! (replace with 1/d instead of 1/sqrt(d))")
+            config.softmax_scale = 1. / (config.d_model / config.n_heads)
+            print(f"{config.softmax_scale=}")
+            # mup embed_scale
+            self.mup["embed_scale"] = self.mup.get("embed_scale", 10.0)
+            print(f"{self.mup['embed_scale']=}")
 
         self.transformer = nn.ModuleDict({
             'wte':
@@ -83,6 +94,11 @@ class MosaicGPT(PreTrainedModel):
         self.transformer.update(
             {'norm_f': norm_class(config.d_model, device=config.init_device)})
 
+        if self.mup:
+           self.transformer.update({
+               'tied_output': MuSharedReadout(self.transformer['wte'].weight)
+           }) 
+
         # enables scaling output logits; similar to a softmax "temperature"
         # PaLM paper uses scale 1/sqrt(config.d_model)
         self.logit_scale = None
@@ -97,11 +113,11 @@ class MosaicGPT(PreTrainedModel):
                     )
             self.logit_scale = logit_scale
 
-        if config.init_device != 'meta':
-            print(
-                f'You are using {config.init_device=}, but you can also use config.init_device="meta" with Composer + FSDP for fast initialization.'
-            )
-            self.apply(self.param_init_fn)
+        # if config.init_device != 'meta':
+        #     print(
+        #         f'You are using {config.init_device=}, but you can also use config.init_device="meta" with Composer + FSDP for fast initialization.'
+        #     )
+        #     self.apply(self.param_init_fn)
 
         self.is_causal = not self.prefix_lm
 
@@ -303,6 +319,9 @@ class MosaicGPT(PreTrainedModel):
         ), f'Cannot forward input with seq_len={S}, this model only supports seq_len<={self.config.max_seq_len}'
 
         tok_emb = self.transformer.wte(input_ids)  # type: ignore
+
+        tok_emb = self.mup["embed_scale"] * tok_emb if self.mup else tok_emb
+
         if self.alibi:
             x = tok_emb
         else:
@@ -377,7 +396,11 @@ class MosaicGPT(PreTrainedModel):
         # output embedding weight tied to input embedding
         assert isinstance(self.transformer.wte, nn.Module)  # pyright
         assert isinstance(self.transformer.wte.weight, torch.Tensor)  # pyright
-        logits = F.linear(x, self.transformer.wte.weight, None)
+
+        if self.mup:
+            logits = self.transformer.tied_output(x)
+        else:
+            logits = F.linear(x, self.transformer.wte.weight, None)
 
         if self.logit_scale is not None:
             if self.logit_scale == 0:
@@ -395,6 +418,7 @@ class MosaicGPT(PreTrainedModel):
         init_fn_name = self.config.param_init_fn
         if self.config.verbose > 1:
             warnings.warn(f'Using {init_fn_name} initialization.')
+        print(module)
         MODEL_INIT_REGISTRY[init_fn_name](module=module,
                                           **self.config.to_dict())
 

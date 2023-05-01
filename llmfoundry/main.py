@@ -4,6 +4,10 @@
 import os
 import sys
 import warnings
+import pickle
+import tempfile
+from pathlib import Path
+import shutil
 
 from composer import Trainer
 from composer.core import Evaluator
@@ -19,6 +23,10 @@ from llmfoundry.common.builders import (build_algorithm, build_callback,
 from llmfoundry.common.config_utils import log_config, update_batch_size_info
 from llmfoundry.common.text_data import build_text_dataloader
 
+from llmfoundry.common.mup_helpers import get_infshapes_custom
+from mup import make_base_shapes, set_base_shapes, get_shapes, get_infshapes
+from composer.utils import (get_file, maybe_create_object_store_from_uri,
+                            parse_uri)
 
 def validate_config(cfg):
     """Validates compatible model and dataloader selection."""
@@ -135,7 +143,63 @@ def main(cfg):
 
     # Build Model
     print('Initializing model...')
-    model = build_composer_model(cfg.model, tokenizer)
+    model = build_composer_model(cfg.model, cfg.tokenizer)
+
+    mup = cfg.model.get("mup", None)
+    if mup:
+        if mup.save_shapes:
+            model_shapes = get_shapes(model)
+            print(model_shapes)
+
+            if not hasattr(mup, "local_cache") or mup.local_cache is None:
+                mup.local_cache = tempfile.TemporaryDirectory().name
+
+            os.makedirs(mup.local_cache, exist_ok=True)
+
+            local_cached_file = Path(mup.local_cache) / "mup.pkl"
+
+            with open(local_cached_file, 'wb') as handle:
+                pickle.dump(model_shapes, handle)
+
+            print(f"Saving to {mup.load_path}")
+
+            object_store = maybe_create_object_store_from_uri(str(mup.load_path))
+
+            if object_store is not None:
+                # remove bucket name and upper part of oci path
+                _, _, prefix = parse_uri(str(mup.load_path))
+                print(prefix)
+                object_store.upload_object(prefix, local_cached_file)
+            else:
+                dir_path = os.path.dirname(mup.load_path)
+
+                # Create the directory path if it doesn't exist
+                if not os.path.exists(dir_path):
+                    os.makedirs(dir_path)
+                shutil.move(local_cached_file, mup.load_path)
+
+            import sys; sys.exit()
+        else:
+
+            if not hasattr(mup, "local_cache") or mup.local_cache is None: 
+                mup.local_cache= tempfile.TemporaryDirectory().name
+            
+            os.makedirs(mup.local_cache, exist_ok=True)
+
+            local_cached_file= Path(mup.local_cache) / "mup.pkl"
+
+            get_file(str(mup.load_path), str(local_cached_file))
+
+            with open(str(local_cached_file), 'rb') as handle:
+                base_shape = pickle.load(handle)
+
+            print("setting base shapes in model!")
+            print(base_shape)
+            set_base_shapes(model, base_shape)
+            print(get_infshapes_custom(model))
+
+            model.apply(model.model.param_init_fn) 
+
     cfg.n_params = sum(p.numel() for p in model.parameters())
     print(f'{cfg.n_params=:.2e}')
 

@@ -22,13 +22,12 @@ command: |
     max_duration=8000ba \
     eval_interval=150ba \
     eval_first=True \
-    data_remote=oci://mosaicml-internal-datasets/c4/base/pretok-gpt2-2k/ \
     tokenizer_name=gpt2 \
     train_loader.dataset.split=train \
     eval_loader.dataset.split=val \
     save_interval=1000ba \
     save_num_checkpoints_to_keep=1 \
-    save_folder: oci://mosaicml-internal-checkpoints/sasha/{run_name}/checkpoints
+    save_folder=oci://mosaicml-internal-checkpoints/sasha/hparam_search/{run_name}/checkpoints
 
 image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 
@@ -46,7 +45,7 @@ scheduling:
 # but is not used in this example.
 parameters:
 
-  data_local: /root/my-copy-c4
+  data_local: /root/my-copy
   data_remote: # If blank, files must be present in data_local
   tokenizer_name: gpt2
   max_seq_len: 2048

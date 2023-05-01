@@ -29,6 +29,7 @@ for embed_scale in [1.0, 10.0]:
             # deepcopy for safety
             run_params = copy.deepcopy(parameters)
             run_params['optimizer']["lr"] = updated_lr
+            run_params['optimizer']["weight_decay"] = updated_lr
             run_params['data_remote'] = dataset
             run_params["model"]["mup"]["embed_scale"] = embed_scale
             config.parameters = run_params

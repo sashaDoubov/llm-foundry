@@ -10,7 +10,7 @@ integrations:
   packages:
   - git+https://github.com/microsoft/mup.git@main
 - integration_type: wandb
-  project: sasha-mup-with-eval
+  project: sasha-mup-with-eval-fixed-wd
   entity: mosaic-ml
 # We are fetching, converting, and training on the 'val' split
 # as it is small and quick to get going for this demo.
@@ -35,7 +35,7 @@ image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 
 gpu_num: 8
 # gpu_type: a100_40gb
-cluster: r1z1 # replace with your cluster here!
+cluster: r1z2 # replace with your cluster here!
 
 scheduling:
   priority: low
@@ -120,7 +120,7 @@ parameters:
     - 0.9
     - 0.95
     eps: 1.0e-08
-    weight_decay: 0.00012
+    weight_decay: 0
 
   algorithms:
     gradient_clipping:

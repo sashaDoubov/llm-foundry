@@ -3,7 +3,7 @@ import copy
 import math
 
 # or create directly in python with RunConfig(...)
-config = RunConfig.from_file('mcli-base-train-for-mup-c4-d-model-4096.yaml')
+config = RunConfig.from_file('mcli-base-train-for-mup-c4-d-model-2048.yaml')
 parameters = copy.deepcopy(config.parameters)
 
 # Sweep over a few different values of 'foo'
@@ -22,7 +22,7 @@ for embed_scale in [1.0, 10.0]:
             rounded_num = round(updated_lr, 2 - int(math.floor(math.log10(abs(updated_lr)))) - 1)
             print(rounded_num)
 
-            config.name = f'mpt-40m-d-4096-lr-{updated_lr}-data-{friendly_data}-e-scale-{int(embed_scale)}'
+            config.name = f'mpt-40m-d-2048-lr-{updated_lr}-data-{friendly_data}-e-scale-{int(embed_scale)}'
 
             print(config.name)
             # Update the parameters

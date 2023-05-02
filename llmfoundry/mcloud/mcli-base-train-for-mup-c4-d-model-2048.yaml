@@ -20,7 +20,7 @@ command: |
   cd llm-foundry/llmfoundry
   composer main.py  /mnt/config/parameters.yaml \
     max_duration=19075ba \
-    eval_interval=150ba \
+    eval_interval=350ba \
     eval_first=True \
     tokenizer_name=gpt2 \
     train_loader.dataset.split=train \
@@ -28,6 +28,8 @@ command: |
 
 image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 
+  # data_remote=oci://mosaicml-internal-datasets/c4/base/pretok-gpt2-2k/ \
+  # optimizer.lr=0.001  model.mup.embed_scale=10
 # Mosaic Cloud will use run_name (with a unique suffix) to populate the env var $COMPOSER_RUN_NAME
 
 gpu_num: 8
@@ -56,7 +58,7 @@ parameters:
     name: mosaic_gpt
     init_device: cpu
     tokenizer_name: ${tokenizer_name}
-    d_model: 4096
+    d_model: 2048
     n_heads: 32
     n_layers: 32
     mlp_ratio: 4
@@ -133,7 +135,7 @@ parameters:
   # System
   seed: ${global_seed}
   device_eval_batch_size: 16
-  device_train_microbatch_size: 16
+  device_train_microbatch_size: 8
   # device_train_microbatch_size: auto
   precision: amp_bf16
 

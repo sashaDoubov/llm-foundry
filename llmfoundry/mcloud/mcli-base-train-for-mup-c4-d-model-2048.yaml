@@ -25,7 +25,7 @@ command: |
     tokenizer_name=gpt2 \
     train_loader.dataset.split=train \
     eval_loader.dataset.split=val \
-    save_folder=oci://mosaicml-internal-checkpoints/sasha/large_run_sweep/{run_name}/checkpoints \
+    save_folder=oci://mosaicml-internal-checkpoints/sasha/large_run_sweep_small_eval/{run_name}/checkpoints \
     save_interval=1000ba \
     save_num_checkpoints_to_keep=1
 
@@ -137,7 +137,7 @@ parameters:
 
   # System
   seed: ${global_seed}
-  device_eval_batch_size: 16
+  device_eval_batch_size: 8
   device_train_microbatch_size: 8
   # device_train_microbatch_size: auto
   precision: amp_bf16

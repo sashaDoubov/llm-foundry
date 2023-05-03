@@ -22,7 +22,7 @@ for embed_scale in [1.0, 10.0]:
             rounded_num = round(updated_lr, 2 - int(math.floor(math.log10(abs(updated_lr)))) - 1)
             print(rounded_num)
 
-            config.name = f'mpt-40m-warmup-d-256-lr-{updated_lr}-data-{friendly_data}-e-scale-{int(embed_scale)}'
+            config.name = f'mpt-40m-BS-512-d-256-lr-{updated_lr}-data-{friendly_data}-e-scale-{int(embed_scale)}'
 
             print(config.name)
             # Update the parameters
@@ -32,6 +32,12 @@ for embed_scale in [1.0, 10.0]:
             run_params['optimizer']["weight_decay"] = updated_lr
             run_params['data_remote'] = dataset
             run_params["model"]["mup"]["embed_scale"] = embed_scale
+            run_params["global_train_batch_size"] = 512
+            run_params["eval_subset_num_batches"] = 332
+            
+            if friendly_data == "s2":
+                # change to be same as c4
+                run_params["eval_subset_num_batches"] = 664
             config.parameters = run_params
             print(config.parameters)
 

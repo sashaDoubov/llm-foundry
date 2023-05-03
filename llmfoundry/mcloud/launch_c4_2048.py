@@ -13,7 +13,8 @@ c4_data = "oci://mosaicml-internal-datasets/c4/base/pretok-gpt2-2k/"
 s2_data = "oci://mosaicml-internal-datasets/s2/base/pretok-gpt2-2k/"
 for embed_scale in [1.0, 10.0]:
     for friendly_data, dataset in zip(["c4"], [c4_data]):
-        for lr_scaler in [-1, 0, 1]:
+        for lr_scaler in [-1, 0, 1, 2]:
+        # for lr_scaler in [0]:
             # set the name of the run
             updated_lr = base_lr * (2**lr_scaler)
             print(updated_lr)

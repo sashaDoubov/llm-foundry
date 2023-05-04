@@ -52,7 +52,7 @@ class GPTBlock(nn.Module):
         norm_class = NORM_CLASS_REGISTRY[norm_type.lower()]
         attn_class = MultiQueryAttention if multiquery_attention else MultiheadAttention
 
-        self.norm_1 = norm_class(d_model, device=device)
+        self.ln_1 = norm_class(d_model, device=device)
         self.attn = attn_class(
             attn_impl=attn_impl,
             attn_clip_qkv=attn_clip_qkv,
@@ -63,7 +63,7 @@ class GPTBlock(nn.Module):
             n_heads=n_heads,
             device=device,
         )
-        self.norm_2 = norm_class(d_model, device=device)
+        self.ln_2 = norm_class(d_model, device=device)
         self.mlp = GPTMLP(
             d_model=d_model,
             mlp_ratio=mlp_ratio,
@@ -80,14 +80,14 @@ class GPTBlock(nn.Module):
         attention_mask: Optional[torch.ByteTensor] = None,
         is_causal: bool = True,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]]]:
-        a = self.norm_1(x)
+        a = self.ln_1(x)
         b, _, past_key_value = self.attn(a,
                                          past_key_value=past_key_value,
                                          attn_bias=attn_bias,
                                          attention_mask=attention_mask,
                                          is_causal=is_causal)
         x = x + self.resid_attn_dropout(b)
-        m = self.norm_2(x)
+        m = self.ln_2(x)
         n = self.mlp(m)
         x = x + self.resid_mlp_dropout(n)
         return x, past_key_value

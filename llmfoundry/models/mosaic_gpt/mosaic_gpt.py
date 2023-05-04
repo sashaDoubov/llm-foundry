@@ -81,7 +81,7 @@ class MosaicGPT(PreTrainedModel):
                 ])
         })
         self.transformer.update(
-            {'norm_f': norm_class(config.d_model, device=config.init_device)})
+            {'ln_f': norm_class(config.d_model, device=config.init_device)})
 
         # enables scaling output logits; similar to a softmax "temperature"
         # PaLM paper uses scale 1/sqrt(config.d_model)

@@ -266,3 +266,13 @@ def muennighoff_tokenize_function(inp: Dict, tokenizer: Tokenizer):
         text=prompt,
         text_target=response,
     )
+
+@dataset_constructor.register('sam-mosaic/vicuna_alpaca_hc3_chatml',
+                              'sam-mosaic/dolly_hhrlhf')
+def dolly_chatml_tokenize_function(inp: Dict, tokenizer: Tokenizer):
+    """Already split, just tokenize."""
+    return tokenizer(
+        text=inp['prompt'],
+        text_target=inp['response'],
+    )
+

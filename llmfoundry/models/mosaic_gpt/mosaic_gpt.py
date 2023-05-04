@@ -372,7 +372,7 @@ class MosaicGPT(PreTrainedModel):
             if past_key_values is not None:
                 past_key_values[b_idx] = past_key_value
 
-        x = self.transformer.norm_f(x)  # type: ignore
+        x = self.transformer.ln_f(x)  # type: ignore
 
         # output embedding weight tied to input embedding
         assert isinstance(self.transformer.wte, nn.Module)  # pyright

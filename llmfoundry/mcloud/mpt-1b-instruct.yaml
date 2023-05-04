@@ -56,7 +56,7 @@ parameters:
     attn_impl: triton
     alibi: true
     attn_clip_qkv: 6
-    no_bias: true
+    no_bias: false
     # low_precision_layernorm: true
     # param_init_fn: kaiming_normal_
     # init_nonlinearity: relu

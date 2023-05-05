@@ -21,6 +21,7 @@ from llmfoundry import MosaicGPTConfig
 # TODO: maybe move this functionality to Composer
 def get_hf_config_from_composer_state_dict(
         state_dict: Dict[str, Any]) -> PretrainedConfig:
+    print(state_dict['state']["integrations"])
     hf_config_dict = state_dict['state']['integrations']['huggingface'][
         'model']['config']['content']
 

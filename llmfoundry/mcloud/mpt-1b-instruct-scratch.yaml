@@ -176,9 +176,7 @@ parameters:
   save_folder: *save_folder
   save_num_checkpoints_to_keep: 1
 
-  load_path: oci://mosaicml-internal-checkpoints/sasha/mosaic-gpt-1b-stable-gpus-8-ALYP05/checkpoints/ep4-ba31000-rank0.pt
   autoresume: false
-  load_weights_only: true
   python_log_level: debug
 
   icl_tasks:

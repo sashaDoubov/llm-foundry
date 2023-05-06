@@ -30,10 +30,9 @@ command: |
     --seed 1 \
     --max_new_tokens 256 \
     --prompts \
-      "Paragraph 4. Buyer agrees to accept the goods and pay for them according to the terms further set out below." \
-      "MosaicML is an ML training efficiency startup that is known for" \
-      "Here's a quick recipe for baking chocolate chip cookies: Start by" \
-      "The best 5 cities to visit in Europe are"
+      "Write a legal document about MosaicML." \
+      "How can a tenant combat a landlord illegaly trying to get them out?" \
+      "What is tort in law?"
 
 image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 optimization_level: 0

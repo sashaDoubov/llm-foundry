@@ -12,6 +12,25 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from llmfoundry import MosaicGPT, MosaicGPTConfig
 
+def format_like_dolly(instruction : str):
+    INSTRUCTION_KEY = "### Instruction:"
+    RESPONSE_KEY = "### Response:"
+    INTRO_BLURB = "Below is an instruction that describes a task. Write a response that appropriately completes the request."
+    PROMPT_FOR_GENERATION_FORMAT = """{intro}
+
+    {instruction_key}
+    {instruction}
+
+    {response_key}
+    """.format(
+        intro=INTRO_BLURB,
+        instruction_key=INSTRUCTION_KEY,
+        instruction=instruction,
+        response_key=RESPONSE_KEY,
+    )
+
+    return PROMPT_FOR_GENERATION_FORMAT
+
 
 def get_dtype(dtype):
     if dtype == 'fp32':
@@ -179,6 +198,11 @@ def main(args: Namespace) -> None:
         f'\nMoving model and inputs to device={device} and dtype={model_dtype}...'
     )
     model.to(device, model_dtype)
+
+
+    formatted_like_dolly_prompts = [format_like_dolly(prompt) for prompt in args.prompts]
+
+    args.prompts.extend(formatted_like_dolly_prompts)
 
     print(f'\nTokenizing prompts...')
     maybe_synchronize()

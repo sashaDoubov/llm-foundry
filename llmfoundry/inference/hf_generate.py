@@ -19,10 +19,10 @@ def format_like_dolly(instruction : str):
     INTRO_BLURB = "Below is an instruction that describes a task. Write a response that appropriately completes the request."
     PROMPT_FOR_GENERATION_FORMAT = dedent("""{intro}
 
-    {instruction_key}
-    {instruction}
+{instruction_key}
+{instruction}
 
-    {response_key}
+{response_key}
     """.format(
         intro=INTRO_BLURB,
         instruction_key=INSTRUCTION_KEY,

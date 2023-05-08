@@ -47,6 +47,7 @@ class MPTConfig(PretrainedConfig):
         no_bias: bool = False,
         verbose: int = 0,
         embedding_fraction: float = 1.0,
+        mup: Optional = None ,
         norm_type: str = 'low_precision_layernorm',
         use_cache: bool = False,
         init_config: Dict = init_config_defaults,
@@ -121,6 +122,7 @@ class MPTConfig(PretrainedConfig):
         self.no_bias = no_bias
         self.verbose = verbose
         self.embedding_fraction = embedding_fraction
+        self.mup = mup
         self.norm_type = norm_type
         self.use_cache = use_cache
         self.init_config = init_config

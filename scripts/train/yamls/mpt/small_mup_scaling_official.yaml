@@ -13,8 +13,8 @@ global_seed: 17
 
 # Model
 model:
-  name: mosaic_gpt
-  init_device: meta
+  name: mpt_causal_lm
+  init_device: cpu
   tokenizer_name: ${tokenizer_name}
   # d_model: 1024
   # n_heads: 16
@@ -29,7 +29,7 @@ model:
   mup:
     save_shapes: False
     load_path: /root/base_shape_rerun.pickle
-    embed_scale: 100.0
+    embed_scale: 1.0
 
 # Tokenizer
 tokenizer:

@@ -30,7 +30,7 @@ from llmfoundry.optim import (DecoupledAdaLRLion, DecoupledClipLion,
 
 Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
-from llmfoundry.common.mup_helpers import GetActivationNorms
+from llmfoundry.callbacks.mup_helpers import GetActivationNorms
 
 from mup import optim
 

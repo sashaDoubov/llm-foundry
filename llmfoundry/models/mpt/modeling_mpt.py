@@ -114,8 +114,7 @@ class MPTModel(MPTPreTrainedModel):
             ) for _ in range(config.n_layers)
         ])
         self.norm_f = norm_class(config.d_model, device=config.init_device)
-        if self.mup:
-               self.tied_output = MuSharedReadout(self.wte.weight)
+
 
         # if config.init_device != 'meta':
         #     print(
@@ -449,6 +448,9 @@ class MPTForCausalLM(MPTPreTrainedModel):
 
         self.transformer = MPTModel(config)
 
+        if self.transformer.mup:
+            self.tied_output = MuSharedReadout(self.transformer.wte.weight, bias=False)
+
         # enables scaling output logits; similar to a softmax "temperature"
         # PaLM paper uses scale 1/sqrt(config.d_model)
         self.logit_scale = None
@@ -508,8 +510,8 @@ class MPTForCausalLM(MPTPreTrainedModel):
                                    output_hidden_states=output_hidden_states,
                                    use_cache=use_cache)
 
-        if self.mup:
-            logits = self.transformer.tied_output(outputs.last_hidden_state)
+        if self.transformer.mup:
+            logits = self.tied_output(outputs.last_hidden_state)
         else:
             logits = F.linear(outputs.last_hidden_state,
                           self.transformer.wte.weight)

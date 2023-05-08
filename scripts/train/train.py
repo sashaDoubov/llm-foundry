@@ -25,7 +25,7 @@ from llmfoundry.utils.builders import (build_algorithm, build_callback,
                                        build_tokenizer)
 from llmfoundry.utils.config_utils import log_config, update_batch_size_info
 
-from llmfoundry.common.mup_helpers import get_infshapes_custom
+from llmfoundry.callbacks.mup_helpers import get_infshapes_custom
 from mup import make_base_shapes, set_base_shapes, get_shapes, get_infshapes
 from composer.utils import (get_file, maybe_create_object_store_from_uri,
                             parse_uri)

@@ -10,8 +10,8 @@ do
     echo "d_model: ${d_model}"
     echo "n_heads: ${n_heads}"
 
-    composer main.py \
-        yamls/mosaic_gpt/small_mup_scaling_official.yaml \
+    composer scripts/train/train.py \
+        scripts/train/yamls/mpt/small_mup_scaling_official.yaml \
             train_loader.dataset.split=train_small \
             max_duration=10ba \
             eval_interval=0 \

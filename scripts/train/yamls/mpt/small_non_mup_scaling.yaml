@@ -17,8 +17,8 @@ global_seed: 17
 
 # Model
 model:
-  name: mosaic_gpt
-  init_device: meta
+  name: mpt_causal_lm
+  init_device: cpu
   tokenizer_name: ${tokenizer_name}
   # d_model: 1024
   # n_heads: 16

@@ -11,12 +11,13 @@ import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from llmfoundry import MosaicGPT, MosaicGPTConfig
+from textwrap import dedent
 
 def format_like_dolly(instruction : str):
     INSTRUCTION_KEY = "### Instruction:"
     RESPONSE_KEY = "### Response:"
     INTRO_BLURB = "Below is an instruction that describes a task. Write a response that appropriately completes the request."
-    PROMPT_FOR_GENERATION_FORMAT = """{intro}
+    PROMPT_FOR_GENERATION_FORMAT = dedent("""{intro}
 
     {instruction_key}
     {instruction}
@@ -27,7 +28,7 @@ def format_like_dolly(instruction : str):
         instruction_key=INSTRUCTION_KEY,
         instruction=instruction,
         response_key=RESPONSE_KEY,
-    )
+    ))
 
     return PROMPT_FOR_GENERATION_FORMAT
 

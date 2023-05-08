@@ -78,11 +78,11 @@ extra_deps['dev'] = [
     'packaging>=21,<23',
 ]
 
-extra_deps['gpu'] = [
-    'flash-attn==v1.0.3.post0',
-    'triton==2.0.0.dev20221202',
-    'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
-]
+# extra_deps['gpu'] = [
+#     'flash-attn==v1.0.3.post0',
+#     'triton==2.0.0.dev20221202',
+#     'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
+# ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 

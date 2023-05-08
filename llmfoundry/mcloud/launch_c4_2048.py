@@ -25,8 +25,8 @@ load_paths =[
 ]
 
 for embed_scale in [1.0, 10.0]:
-    for friendly_data, dataset in zip(["c4"], [c4_data]):
-        for lr_scaler in [-1, 0, 1, 2]:
+    for friendly_data, dataset in zip(["s2"], [s2_data]):
+        for lr_scaler in [-1, 0]:
         # for lr_scaler in [0]:
             # set the name of the run
             updated_lr = base_lr * (2**lr_scaler)
@@ -41,17 +41,17 @@ for embed_scale in [1.0, 10.0]:
 
             print(config.name)
 
-            for s in load_paths:
-                # add end dash to avoid matching 10 with 1
-               if s.startswith(config.name + "-"):
-                   load_folder_path = s
-                   break
-            else:
-                raise Exception("load path not found!")
+            # for s in load_paths:
+            #     # add end dash to avoid matching 10 with 1
+            #    if s.startswith(config.name + "-"):
+            #        load_folder_path = s
+            #        break
+            # else:
+            #     raise Exception("load path not found!")
 
-            load_path = f"oci://mosaicml-internal-checkpoints/sasha/large_run_sweep/{load_folder_path}/checkpoints/latest-rank0.pt"
+            # load_path = f"oci://mosaicml-internal-checkpoints/sasha/large_run_sweep/{load_folder_path}/checkpoints/latest-rank0.pt"
 
-            print(load_path)
+            # print(load_path)
 
             # Update the parameters
             # deepcopy for safety
@@ -62,11 +62,11 @@ for embed_scale in [1.0, 10.0]:
             run_params["model"]["mup"]["embed_scale"] = embed_scale
 
             run_params["eval_subset_num_batches"] = 332
-            run_params["load_path"] = load_path
+            # run_params["load_path"] = load_path
 
             if friendly_data == "s2":
                 # change to be same as c4
-                run_params["eval_subset_num_batches"] = 664
+                run_params["eval_subset_num_batches"] = 332
             config.parameters = run_params
             print(config.parameters)
 

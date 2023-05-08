@@ -25,9 +25,11 @@ command: |
     tokenizer_name=gpt2 \
     train_loader.dataset.split=train \
     eval_loader.dataset.split=val \
-    save_folder=oci://mosaicml-internal-checkpoints/sasha/large_run_sweep_diff_dataset/{run_name}/checkpoints \
+    save_folder=oci://mosaicml-internal-checkpoints/sasha/sp_run/{run_name}/checkpoints \
     save_interval=1000ba \
-    save_num_checkpoints_to_keep=1
+    save_num_checkpoints_to_keep=1 \
+    data_remote=oci://mosaicml-internal-datasets/s2/base/pretok-gpt2-2k/ \
+    eval_subset_num_batches=332
 
 image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 
@@ -36,7 +38,6 @@ image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 # Mosaic Cloud will use run_name (with a unique suffix) to populate the env var $COMPOSER_RUN_NAME
 
 gpu_num: 8
-nodes: 1
 # gpu_type: a100_40gb
 cluster: r1z1 # replace with your cluster here!
 
@@ -72,10 +73,6 @@ parameters:
     no_bias: True
     alibi: True
     attn_clip_qkv: 6
-    mup:
-      save_shapes: False
-      load_path: oci://mosaicml-internal-checkpoints/sasha/mup_shape_pkls/40m_param_proxy_model_may_1_23_alibi.pickle
-      # embed_scale: 1.0
 
   # Tokenizer
   tokenizer:
@@ -117,13 +114,13 @@ parameters:
     alpha_f: 0.1
 
   optimizer:
-    name: mup_decoupled_lionw
-    lr: 6.0e-3
+    name: decoupled_lionw
+    lr: 1.e-4
     betas:
     - 0.9
     - 0.95
     eps: 1.0e-08
-    weight_decay: 0
+    weight_decay: 2.e-4
 
   algorithms:
     gradient_clipping:

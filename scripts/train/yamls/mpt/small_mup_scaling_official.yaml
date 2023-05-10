@@ -14,7 +14,7 @@ global_seed: 17
 # Model
 model:
   name: mpt_causal_lm
-  init_device: cpu
+  init_device: meta
   tokenizer_name: ${tokenizer_name}
   # d_model: 1024
   # n_heads: 16

@@ -1,8 +1,8 @@
 set -e
 set -o xtrace
-source /mnt/workdisk/sasha/llm-foundry/llm-foundry-env/bin/activate
+source /mnt/workdisk/sasha/llm-foundry/llm-foundry-torch-2-env/bin/activate
 source /secrets/secrets.env
-for d_model in 256 512 1024 2048 
+for d_model in 256 512 1024 2048
 do
     for n_heads in 16
     do

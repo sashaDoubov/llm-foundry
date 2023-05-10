@@ -70,9 +70,9 @@ class GetActivationNorms(Callback):
         with open(per_batch_output, 'wb') as fp:
             pickle.dump(optimizer_metrics, fp)
 
-        if state.fsdp_enabled and dist.get_world_size() > 0 and self.log_optimizer_metrics:
+        # if state.fsdp_enabled and dist.get_world_size() > 0:
             
-            raise Exception("FSDP not supported yet!")
+        #     raise Exception("FSDP not supported yet!")
 
         self.batch_num += 1
         logger.log_metrics(optimizer_metrics)

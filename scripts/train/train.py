@@ -204,6 +204,17 @@ def main(cfg):
             set_base_shapes(model, base_shape)
             print(get_infshapes_custom(model))
 
+            # hacky way to get the output layer width mult to be compatible with 
+            for name, param in model.named_parameters():
+                if "wte" in name:
+                    output_width_mult = param.infshape.width_mult()
+                    break
+            else:
+                raise RuntimeError("Did not find the wte layer!")
+            
+            # manually override the logit scale param
+            model.model.logit_scale = 1./output_width_mult
+
             model.apply(model.model.param_init_fn)
 
 

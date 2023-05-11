@@ -47,7 +47,7 @@ classifiers = [
 
 install_requires = [
     'mosaicml[nlp,streaming,wandb]>=0.14.0,<0.15',
-    'torch>2',
+    'torch>=2.0.0',
     'datasets==2.10.1',
     'sentencepiece==0.1.97',
     'einops==0.5.0',

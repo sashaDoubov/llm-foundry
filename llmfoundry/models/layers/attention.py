@@ -31,9 +31,16 @@ def torch_2_attn_fn(
     needs_weights=False,
     multiquery=False):
 
+    import xformers.ops as xops
+    
+    q = rearrange(query, 'b s (h d) -> b s h d', h=n_heads)
+    k = rearrange(key, 'b s (h d) -> b s h d',
+                  h=1 if multiquery else n_heads)  # includes key.t()
+    v = rearrange(value, 'b s (h d) -> b s h d', h=1 if multiquery else n_heads)
 
-    s_q, s_k = query.size(1), key.size(1)
-    min_val = torch.finfo(query.dtype).min
+    b, s_q, _, d = q.shape
+    s_k = k.size(1)
+    min_val = torch.finfo(q.dtype).min
 
 
     full_attn_mask = None
@@ -56,9 +63,23 @@ def torch_2_attn_fn(
         full_attn_mask = full_attn_mask.masked_fill(causal_mask.view(1, 1, s_q, s_k),
                                               min_val)
 
+    # mask = xops.LowerTriangularMask()
+    # if attn_bias is not None:
+    #     mask += attn_bias
+    print(full_attn_mask.shape)
+    # full_attn_mask = rearrange(full_attn_mask, 'b h (s s) -> b s h d', h=n_heads)
+    print(f"{q.shape=}")
+    print(f"{k.shape=}")
+    print(f"{v.shape=}")
+    print(f"{full_attn_mask.shape=}")
+    out = xops.memory_efficient_attention(q, k, v, attn_bias=full_attn_mask)
+    print(f"{out.shape=}")
+    out = rearrange(out, 'b s h d -> b s (h d)')
 
-    with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
-        return torch_2_scaled_dot_product_attention(query, key, value)
+
+    print(out.shape)
+
+    return out, None
 
 
 def _reset_is_causal(num_query_tokens: int, num_key_tokens: int,

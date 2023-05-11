@@ -14,6 +14,52 @@ from torch import nn
 
 from llmfoundry.models.layers.norm import LPLayerNorm
 
+from torch.nn.functional import scaled_dot_product_attention as torch_2_scaled_dot_product_attention
+
+
+def torch_2_attn_fn(
+    query,
+    key,
+    value,
+    n_heads,
+    softmax_scale=None,
+    attn_bias=None,
+    key_padding_mask=None,
+    is_causal=False,
+    dropout_p=0.0,
+    training=False,
+    needs_weights=False,
+    multiquery=False):
+
+
+    s_q, s_k = query.size(1), key.size(1)
+    min_val = torch.finfo(query.dtype).min
+
+
+    full_attn_mask = None
+
+    if attn_bias is not None:
+        full_attn_mask = attn_bias
+
+    if is_causal:
+        s = max(s_q, s_k)
+        if full_attn_mask is None:
+            full_attn_mask = torch.zeros(1, 1, s_q, s_k, device=query.device)
+
+        causal_mask = torch.ones(s, s, dtype=torch.float16, device=query.device)
+        causal_mask = causal_mask.tril()
+        causal_mask = causal_mask.to(torch.bool)
+        causal_mask = ~causal_mask
+
+        causal_mask = causal_mask[-s_q:, -s_k:]
+
+        full_attn_mask = full_attn_mask.masked_fill(causal_mask.view(1, 1, s_q, s_k),
+                                              min_val)
+
+
+    with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+        return torch_2_scaled_dot_product_attention(query, key, value)
+
 
 def _reset_is_causal(num_query_tokens: int, num_key_tokens: int,
                      original_is_causal: bool):
@@ -320,6 +366,8 @@ class MultiheadAttention(nn.Module):
                     'alloc retries which hurts performance. If encountered, we recommend ' +\
                     'using `attn_impl: flash` if your model does not use `alibi` or `prefix_lm`.'
                 )
+        elif self.attn_impl == "torch_2":
+            self.attn_fn = torch_2_attn_fn
         elif self.attn_impl == 'torch':
             self.attn_fn = scaled_multihead_dot_product_attention
             if torch.cuda.is_available() and verbose:
@@ -513,9 +561,9 @@ def attn_bias_shape(attn_impl, n_heads, seq_len, alibi, prefix_lm, causal,
                     use_sequence_id):
     if attn_impl == 'flash':
         return None
-    elif attn_impl in ['torch', 'triton']:
+    elif attn_impl in ['torch', 'triton', 'torch_2']:
         if alibi:
-            if (prefix_lm or not causal) or use_sequence_id:
+            if (prefix_lm or not causal) or use_sequence_id or attn_impl == "torch_2":
                 return (1, n_heads, seq_len, seq_len)
             return (1, n_heads, 1, seq_len)
         elif prefix_lm or use_sequence_id:
@@ -534,9 +582,10 @@ def build_attn_bias(
     alibi=False,
     alibi_bias_max=8,
 ):
+
     if attn_impl == 'flash':
         return None
-    elif attn_impl in ['torch', 'triton']:
+    elif attn_impl in ['torch', 'triton', 'torch_2']:
         if alibi:
             # in place add alibi to attn bias
             device, dtype = attn_bias.device, attn_bias.dtype
@@ -544,7 +593,7 @@ def build_attn_bias(
                 build_alibi_bias(
                     n_heads,
                     seq_len,
-                    full=not causal,
+                    full=True if attn_impl == "torch_2" else not causal,
                     alibi_bias_max=alibi_bias_max,
                     device=device,
                     dtype=dtype,

@@ -194,7 +194,7 @@ def main(cfg):
 
     kwargs = {}
     if using_torch_2():
-        kwargs = {"compile_config" : {'mode': 'reduce-overhead'}}
+        kwargs = {"compile_config" : {}}
 
     # Build the Trainer
     print('Building trainer...')

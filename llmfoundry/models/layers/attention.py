@@ -14,6 +14,9 @@ from torch import nn
 
 from llmfoundry.models.layers.norm import LPLayerNorm
 
+from composer.utils import using_torch_2
+
+is_torch_2_0 = using_torch_2()
 
 def _reset_is_causal(num_query_tokens: int, num_key_tokens: int,
                      original_is_causal: bool):
@@ -26,6 +29,69 @@ def _reset_is_causal(num_query_tokens: int, num_key_tokens: int,
             return False
     return original_is_causal
 
+
+def xformers_attn_fn(
+    query,
+    key,
+    value,
+    n_heads,
+    softmax_scale=None,
+    attn_bias=None,
+    key_padding_mask=None,
+    is_causal=False,
+    dropout_p=0.0,
+    training=False,
+    needs_weights=False,
+    multiquery=False,
+):
+    try:
+       import xformers.ops as xops 
+    except:
+        raise RuntimeError('Please make sure to pip install .[torch2_gpu]')
+
+    if needs_weights:
+        raise NotImplementedError(
+            f'attn_impl: xformers cannot return attn weights.')
+
+    q = rearrange(query, 'b s (h d) -> b s h d', h=n_heads)
+    k = rearrange(key, 'b s (h d) -> b s h d',
+                  h=1 if multiquery else n_heads)  # includes key.t()
+    v = rearrange(value, 'b s (h d) -> b s h d', h=1 if multiquery else n_heads)
+
+    b, s_q, h, d = q.shape
+    s_k = k.size(1)
+    min_val = torch.finfo(q.dtype).min
+
+
+    full_attn_mask = None
+    if attn_bias is not None:
+        full_attn_mask = attn_bias
+
+    if is_causal:
+        if full_attn_mask is not None:
+            s = max(s_q, s_k)
+            if full_attn_mask is None:
+                full_attn_mask = torch.zeros(1, 1, s_q, s_k, device=query.device)
+
+            causal_mask = torch.ones(s, s, dtype=torch.float16, device=query.device)
+            causal_mask = causal_mask.tril()
+            causal_mask = causal_mask.to(torch.bool)
+            causal_mask = ~causal_mask
+
+            causal_mask = causal_mask[-s_q:, -s_k:]
+
+            full_attn_mask = full_attn_mask.masked_fill(causal_mask.view(1, 1, s_q, s_k),
+                                                min_val)
+        else:
+            full_attn_mask = xops.LowerTriangularMask()
+
+    if isinstance(full_attn_mask, torch.Tensor):
+        full_attn_mask = full_attn_mask.expand(b, h, s, s)
+
+    out = xops.memory_efficient_attention(q, k, v, attn_bias=full_attn_mask, scale=softmax_scale, p=dropout_p)
+    out = rearrange(out, 'b s h d -> b s (h d)')
+
+    return out, None
 
 def scaled_multihead_dot_product_attention(
     query,
@@ -328,6 +394,10 @@ class MultiheadAttention(nn.Module):
                     '`prefix_lm` we recommend using `attn_impl: flash` otherwise ' +\
                     'we recommend using `attn_impl: triton`.'
                 )
+        elif self.attn_impl == 'xformers':
+            if not is_torch_2_0:
+                raise NotImplementedError('xformers only valid for torch 2!')
+            self.attn_fn = xformers_attn_fn
         else:
             raise ValueError(f'{attn_impl=} is an invalid setting.')
 
@@ -513,7 +583,7 @@ def attn_bias_shape(attn_impl, n_heads, seq_len, alibi, prefix_lm, causal,
                     use_sequence_id):
     if attn_impl == 'flash':
         return None
-    elif attn_impl in ['torch', 'triton']:
+    elif attn_impl in ['torch', 'triton', 'xformers']:
         if alibi:
             if (prefix_lm or not causal) or use_sequence_id:
                 return (1, n_heads, seq_len, seq_len)
@@ -536,7 +606,7 @@ def build_attn_bias(
 ):
     if attn_impl == 'flash':
         return None
-    elif attn_impl in ['torch', 'triton']:
+    elif attn_impl in ['torch', 'triton', 'xformers']:
         if alibi:
             # in place add alibi to attn bias
             device, dtype = attn_bias.device, attn_bias.dtype

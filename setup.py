@@ -49,7 +49,7 @@ classifiers = [
 install_requires = [
     'composer[nlp,wandb]>=0.14.1,<0.15',
     'mosaicml-streaming>=0.4.1,<0.5',
-    'torch==1.13.1',
+    'torch>=1.13.1',
     'datasets==2.10.1',
     'sentencepiece==0.1.97',
     'einops==0.5.0',
@@ -80,7 +80,13 @@ extra_deps['gpu'] = [
     'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
 ]
 
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+extra_deps['torch2_gpu'] = [
+    'torch>=2.0.0,<=2.0.1',
+    'xformers',
+    # PyPI does not support direct dependencies, so we remove this line before uploading from PyPI
+    'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
+]
+
 
 setup(
     name=_PACKAGE_NAME,

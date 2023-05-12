@@ -163,20 +163,20 @@ class MPTConfig(PretrainedConfig):
             raise ValueError(
                 "self.attn_config['attn_pdrop'], resid_pdrop, emb_pdrop are probabilities and must be between 0 and 1"
             )
-        if self.attn_config['attn_impl'] not in ['torch', 'flash', 'triton']:
+        if self.attn_config['attn_impl'] not in ['torch', 'flash', 'triton', 'xformers']:
             raise ValueError(
                 f"Unknown attn_impl={self.attn_config['attn_impl']}")
         if self.attn_config['prefix_lm'] and self.attn_config[
-                'attn_impl'] not in ['torch', 'triton']:
+                'attn_impl'] not in ['torch', 'triton', 'xformers']:
             raise NotImplementedError(
                 'prefix_lm only implemented with torch and triton attention.')
         if self.attn_config['alibi'] and self.attn_config['attn_impl'] not in [
-                'torch', 'triton'
+                'torch', 'triton', 'xformers'
         ]:
             raise NotImplementedError(
                 'alibi only implemented with torch and triton attention.')
         if self.attn_config['attn_uses_sequence_id'] and self.attn_config[
-                'attn_impl'] not in ['torch', 'triton']:
+                'attn_impl'] not in ['torch', 'triton', 'xformers']:
             raise NotImplementedError(
                 'attn_uses_sequence_id only implemented with torch and triton attention.'
             )

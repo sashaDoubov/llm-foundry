@@ -81,7 +81,8 @@ extra_deps['gpu'] = [
 ]
 
 extra_deps['torch2_gpu'] = [
-    'torch>=2.0.0,<=2.0.1',
+    'torch>=2.0.0,<2.0.1',
+    'xformers'
 ] + extra_deps['gpu'][1:] # exclude triton, as torch 2 requires a later version
 
 

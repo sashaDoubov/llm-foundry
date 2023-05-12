@@ -20,7 +20,7 @@ from llmfoundry.utils.builders import (build_algorithm, build_callback,
                                        build_optimizer, build_scheduler,
                                        build_tokenizer)
 from llmfoundry.utils.config_utils import log_config, update_batch_size_info
-
+from composer.utils import using_torch_2
 
 def validate_config(cfg):
     """Validates compatible model and dataloader selection."""
@@ -192,6 +192,10 @@ def main(cfg):
         for name, algorithm_cfg in (cfg.get('algorithms') or {}).items()
     ]
 
+    kwargs = {}
+    if using_torch_2():
+        kwargs = {"compile_config" : {}}
+
     # Build the Trainer
     print('Building trainer...')
     trainer = Trainer(
@@ -230,6 +234,7 @@ def main(cfg):
         autoresume=cfg.get('autoresume', False),
         python_log_level=cfg.get('python_log_level', None),
         dist_timeout=cfg.dist_timeout,
+        **kwargs
     )
 
     print('Logging config...')

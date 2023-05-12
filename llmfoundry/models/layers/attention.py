@@ -434,7 +434,11 @@ class MultiheadAttention(nn.Module):
             past_key_value = (key, value)
 
         if attn_bias is not None:
-            attn_bias = attn_bias[:, :, -query.size(1):, -key.size(1):]
+            
+            clamped_query_dim = max(0, attn_bias.size(2) - query.size(1))
+            clamped_key_dim = max(0, attn_bias.size(3) - key.size(1))
+
+            attn_bias = attn_bias[:, :, clamped_query_dim:, clamped_key_dim:]
 
         context, attn_weights = self.attn_fn(
             query,

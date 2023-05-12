@@ -82,6 +82,7 @@ extra_deps['gpu'] = [
 
 extra_deps['torch2_gpu'] = [
     'torch>=2.0.0,<=2.0.1',
+    'flash-attn',
     'xformers',
     # PyPI does not support direct dependencies, so we remove this line before uploading from PyPI
     'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',

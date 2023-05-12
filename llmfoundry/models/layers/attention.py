@@ -435,6 +435,7 @@ class MultiheadAttention(nn.Module):
 
         if attn_bias is not None:
             
+            # necessary change for torch 2.0, otherwise there's a RuntimeError with negatives
             clamped_query_dim = max(0, attn_bias.size(2) - query.size(1))
             clamped_key_dim = max(0, attn_bias.size(3) - key.size(1))
 

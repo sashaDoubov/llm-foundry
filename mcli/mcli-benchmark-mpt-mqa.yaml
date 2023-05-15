@@ -18,4 +18,4 @@ integrations:
 command: |
   cd llm-foundry/llm/inference/benchmarking/
 
-  python benchmark.py yamls/7b.yaml
+  python benchmark.py yamls/7b_mqa.yaml

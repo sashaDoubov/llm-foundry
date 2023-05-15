@@ -25,6 +25,7 @@ model:
   emb_pdrop: 0.0
   attn_config:
     attn_impl: triton
+    attn_type: multiquery_attention
 
 device: null
 model_dtype: bf16

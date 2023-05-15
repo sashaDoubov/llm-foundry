@@ -65,14 +65,11 @@ def xformers_attn_fn(
 
     full_attn_mask = None
     if attn_bias is not None:
-        full_attn_mask = attn_bias
+        full_attn_mask = attn_bias.expand(b, h, s, s)
     else:
         if is_causal: 
             full_attn_mask = xops.fmha.attn_bias.LowerTriangularMask()
     
-    if isinstance(full_attn_mask, torch.Tensor):
-        full_attn_mask = full_attn_mask.expand(b, h, s, s)
-
     out = xops.memory_efficient_attention(q, k, v, attn_bias=full_attn_mask, scale=softmax_scale, p=dropout_p)
     out = rearrange(out, 'b s h d -> b s (h d)')
 

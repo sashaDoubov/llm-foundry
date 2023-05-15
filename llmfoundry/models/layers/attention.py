@@ -61,30 +61,15 @@ def xformers_attn_fn(
     b, s_q, h, d = q.shape
     s_k = k.size(1)
     min_val = torch.finfo(q.dtype).min
-
+    s = max(s_k, s_q)
 
     full_attn_mask = None
     if attn_bias is not None:
         full_attn_mask = attn_bias
-
-    if is_causal:
-        if full_attn_mask is not None:
-            s = max(s_q, s_k)
-            if full_attn_mask is None:
-                full_attn_mask = torch.zeros(1, 1, s_q, s_k, device=query.device)
-
-            causal_mask = torch.ones(s, s, dtype=torch.float16, device=query.device)
-            causal_mask = causal_mask.tril()
-            causal_mask = causal_mask.to(torch.bool)
-            causal_mask = ~causal_mask
-
-            causal_mask = causal_mask[-s_q:, -s_k:]
-
-            full_attn_mask = full_attn_mask.masked_fill(causal_mask.view(1, 1, s_q, s_k),
-                                                min_val)
-        else:
-            full_attn_mask = xops.LowerTriangularMask()
-
+    else:
+        if is_causal: 
+            full_attn_mask = xops.fmha.attn_bias.LowerTriangularMask()
+    
     if isinstance(full_attn_mask, torch.Tensor):
         full_attn_mask = full_attn_mask.expand(b, h, s, s)
 
@@ -611,7 +596,7 @@ def build_attn_bias(
 ):
     if attn_impl == 'flash':
         return None
-    elif attn_impl in ['torch', 'triton', 'xformers']:
+    elif attn_impl in ['torch', 'triton']:
         if alibi:
             # in place add alibi to attn bias
             device, dtype = attn_bias.device, attn_bias.dtype
@@ -624,6 +609,30 @@ def build_attn_bias(
                     device=device,
                     dtype=dtype,
                 ))
+        return attn_bias
+    elif attn_impl == 'xformers':
+        if alibi:
+            # in place add alibi to attn bias
+            device, dtype = attn_bias.device, attn_bias.dtype
+            attn_bias = attn_bias.add(
+                build_alibi_bias(
+                    n_heads,
+                    seq_len,
+                    full=True,
+                    alibi_bias_max=alibi_bias_max,
+                    device=device,
+                    dtype=dtype,
+                ))
+            if causal:
+                min_val = torch.finfo(attn_bias.dtype).min
+                s = attn_bias.shape[-1]
+                causal_mask = attn_bias.new_ones(s, s, dtype=torch.float16)
+                causal_mask = causal_mask.tril()
+                causal_mask = causal_mask.to(torch.bool)
+                causal_mask = ~causal_mask
+                causal_mask = causal_mask[-s:, -s:]
+                attn_bias = attn_bias.masked_fill(causal_mask.view(1, 1, s, s),
+                                                    min_val)
         return attn_bias
     else:
         raise ValueError(f'{attn_impl=} is an invalid setting.')

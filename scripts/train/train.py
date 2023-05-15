@@ -192,10 +192,6 @@ def main(cfg):
         for name, algorithm_cfg in (cfg.get('algorithms') or {}).items()
     ]
 
-    kwargs = {}
-    if using_torch_2():
-        kwargs = {"compile_config" : {}}
-
     # Build the Trainer
     print('Building trainer...')
     trainer = Trainer(
@@ -234,7 +230,7 @@ def main(cfg):
         autoresume=cfg.get('autoresume', False),
         python_log_level=cfg.get('python_log_level', None),
         dist_timeout=cfg.dist_timeout,
-        **kwargs
+        compile_config=cfg.get('compile_config', None) # used for torch 2
     )
 
     print('Logging config...')

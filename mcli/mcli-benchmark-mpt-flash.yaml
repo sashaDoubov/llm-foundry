@@ -1,0 +1,15 @@
+run_name: deepspeed-inference
+gpu_num: 8
+cluster: r0z0 # Update with your cluster here!
+image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
+integrations:
+- integration_type: git_repo
+  git_repo: sashaDoubov/llm-foundry
+  git_branch: sasha/benchmark-mqa # use your branch
+  pip_install: '.[gpu]'
+
+
+command: |
+  cd llm-foundry/scripts/inference/benchmarking
+
+  python benchmark.py yamls/7b_flash.yaml

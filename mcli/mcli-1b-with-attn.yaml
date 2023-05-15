@@ -1,9 +1,9 @@
 integrations:
 - integration_type: git_repo
   git_repo: sashaDoubov/llm-foundry
-  git_branch: sasha/torch2-attn # use your branch
+  git_branch: main # use your branch
   # git_commit: # OR use your commit hash
-  pip_install: -e .[torch2_gpu]
+  pip_install: -e .[gpu]
   ssh_clone: false # Should be true if using a private repo
 - integration_type: wandb
   project: sasha-benchmarking-torch2
@@ -17,19 +17,14 @@ command: |
   composer train/train.py train/yamls/mpt/1b.yaml \
     train_loader.dataset.split=train_small \
     eval_loader.dataset.split=val_small \
-    max_duration=100ba \
+    max_duration=12ba \
     eval_interval=0 \
-    model.attn_config.attn_impl=torch \
     model.attn_config.alibi=True \
     loggers.wandb="{}" \
-    data_remote=oci://mosaicml-internal-datasets/c4/base/pretok-gpt2-2k/ \
-    model.loss_fn=torch_crossentropy \
-    model.norm_type=layernorm \
-    device_train_microbatch_size=1
-
-image: mosaicml/pytorch:2.0.0_cu117-python3.10-ubuntu20.04
+    data_remote=oci://mosaicml-internal-datasets/c4/base/pretok-gpt2-2k/
+image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
 # Mosaic Cloud will use run_name (with a unique suffix) to populate the env var $COMPOSER_RUN_NAME
-run_name: torch-2-alibi-torch
+run_name: torch-1_13-alibi-triton
 
 gpu_num: 8
 # gpu_type: a100_40gb

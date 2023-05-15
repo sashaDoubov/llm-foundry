@@ -76,7 +76,6 @@ extra_deps['dev'] = [
 extra_deps['gpu'] = [
     'triton==2.0.0.dev20221202',
     'flash-attn>=v1.0.3.post0',
-    'xformers'
     # PyPI does not support direct dependencies, so we remove this line before uploading from PyPI
     'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
 ]

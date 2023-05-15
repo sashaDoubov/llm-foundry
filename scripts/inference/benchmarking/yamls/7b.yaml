@@ -24,7 +24,7 @@ model:
   resid_pdrop: 0.0
   emb_pdrop: 0.0
   attn_config:
-    attn_impl: torch
+    attn_impl: triton
 
 device: null
 model_dtype: bf16

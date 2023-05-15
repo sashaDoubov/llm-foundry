@@ -10,6 +10,6 @@ integrations:
 
 
 command: |
-  cd scripts/inference/benchmarking
+  cd llm-foundry/scripts/inference/benchmarking
 
   python benchmark.py yamls/7b.yaml

@@ -12,9 +12,6 @@ import torch.nn as nn
 from einops import rearrange
 from torch import nn
 
-from llmfoundry.models.layers.norm import LPLayerNorm
-
-
 def _reset_is_causal(num_query_tokens: int, num_key_tokens: int,
                      original_is_causal: bool):
     if original_is_causal and num_query_tokens != num_key_tokens:
@@ -112,160 +109,6 @@ def check_valid_inputs(*tensors, valid_dtypes=[torch.float16, torch.bfloat16]):
             raise TypeError(f'Inputs must be cuda tensors ({tensor.is_cuda=}).')
 
 
-def flash_attn_fn(
-    query,
-    key,
-    value,
-    n_heads,
-    softmax_scale=None,
-    attn_bias=None,
-    key_padding_mask=None,
-    is_causal=False,
-    dropout_p=0.0,
-    training=False,
-    needs_weights=False,
-    multiquery=False,
-):
-    try:
-        from flash_attn import bert_padding, flash_attn_interface  # type: ignore # yapf: disable # isort: skip
-    except:
-        raise RuntimeError('Please install flash-attn==1.0.3.post0')
-
-    check_valid_inputs(query, key, value)
-
-    if attn_bias is not None:
-        raise NotImplementedError(f'attn_bias not implemented for flash attn.')
-
-    batch_size, seqlen = query.shape[:2]
-
-    if key_padding_mask is None:
-        key_padding_mask = torch.ones_like(key[:, :, 0], dtype=torch.bool)
-    query_padding_mask = key_padding_mask[:, -query.size(1):]
-
-    query_unpad, indices_q, cu_seqlens_q, max_seqlen_q = bert_padding.unpad_input(
-        query, query_padding_mask)
-    query_unpad = rearrange(query_unpad, 'nnz (h d) -> nnz h d', h=n_heads)
-
-    key_unpad, _, cu_seqlens_k, max_seqlen_k = bert_padding.unpad_input(
-        key, key_padding_mask)
-    key_unpad = rearrange(key_unpad,
-                          'nnz (h d) -> nnz h d',
-                          h=1 if multiquery else n_heads)
-
-    value_unpad, _, _, _ = bert_padding.unpad_input(value, key_padding_mask)
-    value_unpad = rearrange(value_unpad,
-                            'nnz (h d) -> nnz h d',
-                            h=1 if multiquery else n_heads)
-
-    if multiquery:
-        # Expanding a tensor does not allocate new memory, but only creates a new
-        # view on the existing tensor where a dimension of size one is expanded
-        # to a larger size by setting the stride to 0.
-        # - pytorch docs
-        #
-        # hopefully the kernels can utilize this and we're jot just wasting BW here
-        key_unpad = key_unpad.expand(key_unpad.size(0), n_heads,
-                                     key_unpad.size(-1))
-        value_unpad = value_unpad.expand(value_unpad.size(0), n_heads,
-                                         value_unpad.size(-1))
-
-    dropout_p = dropout_p if training else 0.0
-
-    reset_is_causal = _reset_is_causal(query.size(1), key.size(1), is_causal)
-
-    output_unpad = flash_attn_interface.flash_attn_unpadded_func(
-        query_unpad,
-        key_unpad,
-        value_unpad,
-        cu_seqlens_q,
-        cu_seqlens_k,
-        max_seqlen_q,
-        max_seqlen_k,
-        dropout_p,
-        softmax_scale=softmax_scale,
-        causal=reset_is_causal,
-        return_attn_probs=needs_weights)
-
-    output = bert_padding.pad_input(
-        rearrange(output_unpad, 'nnz h d -> nnz (h d)'), indices_q, batch_size,
-        seqlen)
-    return output, None
-
-
-def triton_flash_attn_fn(
-    query,
-    key,
-    value,
-    n_heads,
-    softmax_scale=None,
-    attn_bias=None,
-    key_padding_mask=None,
-    is_causal=False,
-    dropout_p=0.0,
-    training=False,
-    needs_weights=False,
-    multiquery=False,
-):
-    try:
-        from flash_attn import flash_attn_triton  # type: ignore
-    except:
-        raise RuntimeError(
-            'Please install flash-attn==1.0.3.post0 and triton==2.0.0.dev20221202'
-        )
-
-    check_valid_inputs(query, key, value)
-
-    if dropout_p:
-        raise NotImplementedError(
-            f'Dropout not implemented for attn_impl: triton.')
-
-    if needs_weights:
-        raise NotImplementedError(
-            f'attn_impl: triton cannot return attn weights.')
-
-    if key_padding_mask is not None:
-        warnings.warn(
-            'Propagating key_padding_mask to the attention module ' +\
-            'and applying it within the attention module can cause ' +\
-            'unnecessary computation/memory usage. Consider integrating ' +\
-            'into attn_bias once and passing that to each attention ' +\
-            'module instead.'
-        )
-        b_size, s_k = key_padding_mask.shape[:2]
-
-        if attn_bias is None:
-            attn_bias = query.new_zeros(b_size, 1, 1, s_k)
-
-        attn_bias = attn_bias.masked_fill(
-            ~key_padding_mask.view((b_size, 1, 1, s_k)),
-            torch.finfo(query.dtype).min)
-
-    query = rearrange(query, 'b s (h d) -> b s h d', h=n_heads)
-    key = rearrange(key, 'b s (h d) -> b s h d', h=1 if multiquery else n_heads)
-    value = rearrange(value,
-                      'b s (h d) -> b s h d',
-                      h=1 if multiquery else n_heads)
-
-    if multiquery:
-        # Expanding a tensor does not allocate new memory, but only creates a new
-        # view on the existing tensor where a dimension of size one is expanded
-        # to a larger size by setting the stride to 0.
-        # - pytorch docs
-        #
-        # hopefully the kernels can utilize this and we're jot just wasting BW here
-        key = key.expand(*key.shape[:2], n_heads, key.size(-1))
-        value = value.expand(*value.shape[:2], n_heads, value.size(-1))
-
-    reset_is_causal = _reset_is_causal(query.size(1), key.size(1), is_causal)
-    attn_output = flash_attn_triton.flash_attn_func(query, key, value,
-                                                    attn_bias, reset_is_causal,
-                                                    softmax_scale)
-
-    output = attn_output.view(*attn_output.shape[:2], -1)
-
-    return output, None
-
-
 class MultiheadAttention(nn.Module):
     """Multi-head self attention.
 
@@ -305,7 +148,7 @@ class MultiheadAttention(nn.Module):
         self.Wqkv._fused = (0, fuse_splits)  # type: ignore
 
         if self.qk_ln:
-            layernorm_class = LPLayerNorm if low_precision_layernorm else nn.LayerNorm
+            layernorm_class = nn.LayerNorm
             self.q_ln = layernorm_class(self.d_model, device=device)
             self.k_ln = layernorm_class(self.d_model, device=device)
 
@@ -383,130 +226,7 @@ class MultiheadAttention(nn.Module):
         return self.out_proj(context), attn_weights, past_key_value
 
 
-class MultiQueryAttention(nn.Module):
-    """Multi-Query self attention.
 
-    Using torch or triton attention implemetation enables user to also use
-    additive bias.
-    """
-
-    def __init__(
-        self,
-        d_model: int,
-        n_heads: int,
-        attn_impl: str = 'triton',
-        clip_qkv: Optional[float] = None,
-        qk_ln: bool = False,
-        softmax_scale: Optional[float] = None,
-        attn_pdrop: float = 0.0,
-        low_precision_layernorm: bool = False,
-        verbose: int = 0,
-        device: Optional[str] = None,
-    ):
-        super().__init__()
-
-        self.attn_impl = attn_impl
-        self.clip_qkv = clip_qkv
-        self.qk_ln = qk_ln
-
-        self.d_model = d_model
-        self.n_heads = n_heads
-        self.head_dim = d_model // n_heads
-        self.softmax_scale = softmax_scale
-        if self.softmax_scale is None:
-            self.softmax_scale = 1 / math.sqrt(self.head_dim)
-        self.attn_dropout_p = attn_pdrop
-
-        # NOTE: if we ever want to make attn TensorParallel, I'm pretty sure we'll
-        # want to split Wqkv into Wq and Wkv where Wq can be TensorParallel but
-        # Wkv shouldn't be TensorParallel
-        # - vchiley
-        self.Wqkv = nn.Linear(d_model,
-                              d_model + 2 * self.head_dim,
-                              device=device)
-        # for param init fn; enables shape based init of fused layers
-        fuse_splits = (d_model, d_model + self.head_dim)
-        self.Wqkv._fused = (0, fuse_splits)  # type: ignore
-
-        if self.qk_ln:
-            layernorm_class = LPLayerNorm if low_precision_layernorm else nn.LayerNorm
-            self.q_ln = layernorm_class(d_model, device=device)
-            self.k_ln = layernorm_class(self.head_dim, device=device)
-
-        if self.attn_impl == 'flash':
-            self.attn_fn = flash_attn_fn
-        elif self.attn_impl == 'triton':
-            self.attn_fn = triton_flash_attn_fn
-            if verbose:
-                warnings.warn(
-                    'While `attn_impl: triton` can be faster than `attn_impl: flash` ' +\
-                    'it uses more memory. When training larger models this can trigger '  +\
-                    'alloc retries which hurts performance. If encountered, we recommend ' +\
-                    'using `attn_impl: flash` if your model does not use `alibi` or `prefix_lm`.'
-                )
-        elif self.attn_impl == 'torch':
-            self.attn_fn = scaled_multihead_dot_product_attention
-            if torch.cuda.is_available() and verbose:
-                warnings.warn(
-                    'Using `attn_impl: torch`. If your model does not use `alibi` or ' +\
-                    '`prefix_lm` we recommend using `attn_impl: flash` otherwise ' +\
-                    'we recommend using `attn_impl: triton`.'
-                )
-        else:
-            raise ValueError(f'{attn_impl=} is an invalid setting.')
-
-        self.out_proj = nn.Linear(self.d_model, self.d_model, device=device)
-        self.out_proj._is_residual = True  # type: ignore
-
-    def forward(self,
-                x,
-                past_key_value=None,
-                attn_bias=None,
-                attention_mask=None,
-                is_causal=True,
-                needs_weights=False):
-        qkv = self.Wqkv(x)
-
-        if self.clip_qkv:
-            qkv.clamp_(min=-self.clip_qkv, max=self.clip_qkv)
-
-        query, key, value = qkv.split(
-            [self.d_model, self.head_dim, self.head_dim], dim=2)
-
-        key_padding_mask = attention_mask
-
-        if self.qk_ln:
-            # Applying layernorm to qk
-            dtype = query.dtype
-            query = self.q_ln(query).to(dtype)
-            key = self.k_ln(key).to(dtype)
-
-        if past_key_value is not None:
-            if len(past_key_value) != 0:
-                key = torch.cat([past_key_value[0], key], dim=1)
-                value = torch.cat([past_key_value[1], value], dim=1)
-
-            past_key_value = (key, value)
-
-        if attn_bias is not None:
-            attn_bias = attn_bias[:, :, -query.size(1):, -key.size(1):]
-
-        context, attn_weights = self.attn_fn(
-            query,
-            key,
-            value,
-            self.n_heads,
-            softmax_scale=self.softmax_scale,
-            attn_bias=attn_bias,
-            key_padding_mask=key_padding_mask,
-            is_causal=is_causal,
-            dropout_p=self.attn_dropout_p,
-            training=self.training,
-            needs_weights=needs_weights,
-            multiquery=True,
-        )
-
-        return self.out_proj(context), attn_weights, past_key_value
 
 
 def attn_bias_shape(attn_impl, n_heads, seq_len, alibi, prefix_lm, causal,
@@ -594,7 +314,6 @@ def build_alibi_bias(
 
 ATTN_CLASS_REGISTRY = {
     'multihead_attention': MultiheadAttention,
-    'multiquery_attention': MultiQueryAttention,
 }
 
 def setup(rank, world_size):

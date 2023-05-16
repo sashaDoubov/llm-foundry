@@ -596,3 +596,48 @@ ATTN_CLASS_REGISTRY = {
     'multihead_attention': MultiheadAttention,
     'multiquery_attention': MultiQueryAttention,
 }
+
+def setup(rank, world_size):
+    import os
+    import torch.distributed as dist
+    print(rank, world_size)
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    os.environ['MASTER_PORT'] = '12355'
+
+    # initialize the process group
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+def cleanup():
+    import torch.distributed as dist
+
+    dist.destroy_process_group()
+
+def fsdp_main(rank, world_size):
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        setup(rank, world_size)
+        print("exited setup???")
+        torch.cuda.set_device(rank)
+        
+        attn_module = MultiheadAttention(
+                        d_model = 768,
+                        n_heads = 12,
+                        attn_impl = "torch",
+                        softmax_scale=1./8)
+        sharded_module = FSDP(attn_module, use_orig_params=True)
+        sharded_module = sharded_module.to(rank)
+        opt_module = torch.compile(sharded_module)
+        
+        x = torch.rand((2, 2048, 768)).to(rank)
+        print(opt_module(x)[0].shape)
+
+        cleanup()
+
+if __name__ == "__main__":
+    import torch.multiprocessing as mp
+
+    WORLD_SIZE = torch.cuda.device_count()
+
+    mp.spawn(fsdp_main,
+        args=(WORLD_SIZE, ),
+        nprocs=WORLD_SIZE,
+        join=True)
+

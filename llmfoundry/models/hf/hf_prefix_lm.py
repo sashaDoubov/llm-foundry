@@ -5,18 +5,22 @@
 
 from __future__ import annotations
 
+from typing import Mapping, Union
+
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from omegaconf import DictConfig
-from omegaconf import OmegaConf as om
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import (AutoConfig, AutoModelForCausalLM, PreTrainedTokenizer,
+                          PreTrainedTokenizerFast)
 
 from llmfoundry.models.hf.model_wrapper import HuggingFaceModelWithZLoss
-from llmfoundry.models.utils import (AutoTokenizerForMOD,
+from llmfoundry.models.utils import (adapt_tokenizer_for_denoising,
                                      add_bidirectional_mask_if_missing,
                                      convert_hf_causal_lm_to_prefix_lm,
                                      init_empty_weights)
 
 __all__ = ['ComposerHFPrefixLM']
+
+Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
 # HuggingFace hardcodes the ignore index to -100
 _HF_IGNORE_INDEX = -100
@@ -59,37 +63,39 @@ class ComposerHFPrefixLM(HuggingFaceModelWithZLoss):
                 checkpoint that was trained on such a task, set this to ``True`` to ensure
                 that the model vocab size matches your checkpoint's vocab size when loading
                 the weights. Default: ``False``.
-            cfg.add_exact_match (bool, optional): CURRENTLY UNUSED. Whether to add ExactMatch metric used
-                in some fine-tuning settings. Default: ``False``.
-            cfg.add_rouge (bool, optional): CURRENTLY UNUSED. Whether to add RougeWithDetokenizer metric
-                to validation metrics. Default: ``False``.
+        tokenizer (PreTrainedTokenizer): The tokenizer that the model will use.
     """
 
-    def __init__(self, om_model_config: DictConfig,
-                 om_tokenizer_config: DictConfig):
+    def __init__(self, om_model_config: DictConfig, tokenizer: Tokenizer):
         config = AutoConfig.from_pretrained(
             om_model_config.pretrained_model_name_or_path,
-            **om_model_config.get('config_overrides', {}))
+            trust_remote_code=om_model_config.get('trust_remote_code', True),
+            use_auth_token=om_model_config.get('use_auth_token', False),
+        )
+
+        # set config overrides
+        for k, v in om_model_config.get('config_overrides', {}).items():
+            if not hasattr(config, k):
+                raise ValueError(
+                    f'config does not have attribute "{k}" to override ({k}: {v}).'
+                )
+
+            attr = getattr(config, k)
+            if isinstance(attr, Mapping):
+                extra_keys = [_k for _k in v.keys() if _k not in attr.keys()]
+                if extra_keys:
+                    raise ValueError(
+                        f'Config dict override got unknown keys. '
+                        f'Extra keys: {extra_keys}. '
+                        f'Expected (a subset of) keys: {list(attr.keys())}.')
+                getattr(config, k).update(v)
+            else:
+                setattr(config, k, v)
 
         # Set up the tokenizer (add tokens for denoising sentinels if needed)
         if om_model_config.get('adapt_vocab_for_denoising', False):
-            resolved_om_tokenizer_config = om.to_container(om_tokenizer_config,
-                                                           resolve=True)
-            tokenizer_kwargs = resolved_om_tokenizer_config.get(  # type: ignore
-                'kwargs', {})
-            tokenizer_name = resolved_om_tokenizer_config[  # type: ignore
-                'name']
-            tokenizer = AutoTokenizerForMOD.from_pretrained(
-                tokenizer_name, **tokenizer_kwargs)
-        else:
-            resolved_om_tokenizer_config = om.to_container(om_tokenizer_config,
-                                                           resolve=True)
-            tokenizer_kwargs = resolved_om_tokenizer_config.get(  # type: ignore
-                'kwargs', {})
-            tokenizer_name = resolved_om_tokenizer_config[  # type: ignore
-                'name']
-            tokenizer = AutoTokenizer.from_pretrained(tokenizer_name,
-                                                      **tokenizer_kwargs)
+            adapt_tokenizer_for_denoising(tokenizer)
+
         vocab_size = len(tokenizer)
 
         init_device = om_model_config.get('init_device', 'cpu')
@@ -120,18 +126,11 @@ class ComposerHFPrefixLM(HuggingFaceModelWithZLoss):
             MaskedAccuracy(ignore_index=_HF_IGNORE_INDEX)
         ]
 
-        # if cfg.add_exact_match:
-        #     metrics.append(ExactMatch(ignore_index=_HF_IGNORE_INDEX))
-
         composer_model = super().__init__(model=model,
                                           tokenizer=tokenizer,
                                           metrics=metrics,
                                           z_loss=om_model_config.get(
                                               'z_loss', 0.0))
-
-        # if cfg.add_rouge:
-        #     rouge_metric = RougeWithDetokenizer(detokenizer=tokenizer)
-        #     composer_model.val_metrics[RougeWithDetokenizer.__name__] = rouge_metric
 
         return composer_model
 

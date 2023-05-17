@@ -3,19 +3,24 @@
 
 """Implements a Hugging Causal LM wrapped inside a :class:`.ComposerModel`."""
 
-from typing import Optional
+from typing import Mapping, Union
 
 from composer.metrics.nlp import (InContextLearningLMAccuracy,
+                                  InContextLearningLMExpectedCalibrationError,
+                                  InContextLearningMCExpectedCalibrationError,
                                   InContextLearningMultipleChoiceAccuracy,
+                                  InContextLearningQAAccuracy,
                                   LanguageCrossEntropy, LanguagePerplexity)
 from omegaconf import DictConfig
-from omegaconf import OmegaConf as om
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import (AutoConfig, AutoModelForCausalLM, PreTrainedTokenizer,
+                          PreTrainedTokenizerFast)
 
 from llmfoundry.models.hf.model_wrapper import HuggingFaceModelWithZLoss
 from llmfoundry.models.utils import init_empty_weights
 
 __all__ = ['ComposerHFCausalLM']
+
+Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
 
 class ComposerHFCausalLM(HuggingFaceModelWithZLoss):
@@ -34,26 +39,34 @@ class ComposerHFCausalLM(HuggingFaceModelWithZLoss):
             cfg.init_device ('cpu' | 'meta'): Which device, 'cpu' or 'meta', to
                 initialize the model on. Currently, `meta` is only supported when
                 cfg.pretrained is ``False``. Default: ``'cpu'``.
-            cfg.add_exact_match (bool, optional): CURRENTLY UNUSED. Whether to add ExactMatch metric used
-                in some fine-tuning settings. Default: ``False``.
-            cfg.add_rouge (bool, optional): CURRENTLY UNUSED. Whether to add RougeWithDetokenizer metric
-                to validation metrics. Default: ``False``.
+        tokenizer (PreTrainedTokenizer): The tokenizer that the model will use.
     """
 
-    def __init__(self,
-                 om_model_config: DictConfig,
-                 om_tokenizer_config: Optional[DictConfig] = None):
+    def __init__(self, om_model_config: DictConfig, tokenizer: Tokenizer):
         config = AutoConfig.from_pretrained(
             om_model_config.pretrained_model_name_or_path,
-            **om_model_config.get('config_overrides', {}))
+            trust_remote_code=om_model_config.get('trust_remote_code', True),
+            use_auth_token=om_model_config.get('use_auth_token', False),
+        )
 
-        resolved_om_tokenizer_config = om.to_container(om_tokenizer_config,
-                                                       resolve=True)
-        tokenizer_kwargs = resolved_om_tokenizer_config.get(  # type: ignore
-            'kwargs', {})
-        tokenizer_name = resolved_om_tokenizer_config['name']  # type: ignore
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name,
-                                                  **tokenizer_kwargs)
+        # set config overrides
+        for k, v in om_model_config.get('config_overrides', {}).items():
+            if not hasattr(config, k):
+                raise ValueError(
+                    f'config does not have attribute "{k}" to override ({k}: {v}).'
+                )
+
+            attr = getattr(config, k)
+            if isinstance(attr, Mapping):
+                extra_keys = [_k for _k in v.keys() if _k not in attr.keys()]
+                if extra_keys:
+                    raise ValueError(
+                        f'Config dict override got unknown keys. '
+                        f'Extra keys: {extra_keys}. '
+                        f'Expected (a subset of) keys: {list(attr.keys())}.')
+                getattr(config, k).update(v)
+            else:
+                setattr(config, k, v)
 
         train_metrics = [
             LanguageCrossEntropy(len(tokenizer)),
@@ -64,6 +77,9 @@ class ComposerHFCausalLM(HuggingFaceModelWithZLoss):
             LanguagePerplexity(len(tokenizer)),
             InContextLearningLMAccuracy(),
             InContextLearningMultipleChoiceAccuracy(),
+            InContextLearningQAAccuracy(),
+            InContextLearningLMExpectedCalibrationError(),
+            InContextLearningMCExpectedCalibrationError()
         ]
 
         init_device = om_model_config.get('init_device', 'cpu')
@@ -71,6 +87,9 @@ class ComposerHFCausalLM(HuggingFaceModelWithZLoss):
             if om_model_config.pretrained:
                 model = AutoModelForCausalLM.from_pretrained(
                     om_model_config.pretrained_model_name_or_path,
+                    trust_remote_code=om_model_config.get(
+                        'trust_remote_code', True),
+                    use_auth_token=om_model_config.get('use_auth_token', False),
                     config=config)
             else:
                 model = AutoModelForCausalLM.from_config(config)
@@ -85,18 +104,11 @@ class ComposerHFCausalLM(HuggingFaceModelWithZLoss):
             raise ValueError(
                 f'init_device="{init_device}" must be either "cpu" or "meta".')
 
-        # if cfg.add_exact_match:
-        #     metrics.append(ExactMatch(ignore_index=_HF_IGNORE_INDEX))
-
         composer_model = super().__init__(model=model,
                                           tokenizer=tokenizer,
                                           metrics=train_metrics,
                                           eval_metrics=eval_metrics,
                                           z_loss=om_model_config.get(
                                               'z_loss', 0.0))
-
-        # if cfg.add_rouge:
-        #     rouge_metric = RougeWithDetokenizer(detokenizer=tokenizer)
-        #     composer_model.val_metrics[RougeWithDetokenizer.__name__] = rouge_metric
 
         return composer_model

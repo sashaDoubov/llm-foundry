@@ -3,6 +3,9 @@
 
 import os
 import shutil
+import sys
+import tempfile
+from argparse import Namespace
 
 import pytest
 import torch
@@ -10,12 +13,17 @@ from omegaconf import OmegaConf as om
 
 from llmfoundry import (build_finetuning_dataloader,
                         build_text_denoising_dataloader)
-from llmfoundry.common.builders import build_tokenizer
-from llmfoundry.common.text_data import (ConcatenatedSequenceCollatorWrapper,
-                                         build_text_dataloader)
+from llmfoundry.data.text_data import (ConcatenatedSequenceCollatorWrapper,
+                                       build_text_dataloader)
+from llmfoundry.utils.builders import build_tokenizer
+
+# Add repo root to path so we can import scripts and test it
+repo_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(repo_dir)
+from scripts.data_prep.convert_dataset_hf import main as main_hf
 
 
-def get_config(conf_path='yamls/mosaic_gpt/125m.yaml'):
+def get_config(conf_path='yamls/mpt/125m.yaml'):
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
     with open(conf_path) as f:
         test_cfg = om.load(f)
@@ -37,28 +45,57 @@ def test_correct_padding(tokenizer_name, pretokenize, batch_size=4):
         pytest.xfail('Must pretokenize data if using "gpt2" tokenizer')
 
     data_local = get_data_local(tokenizer_name, pretokenize)
-    split = 'val_small'
-    tokenizer_args = {
-        'gpt2': '--eos_text "<|endoftext|>"',
-        'facebook/opt-125m': '--bos_text "</s>"'
-    }[tokenizer_name]
+    split = 'val_xsmall'
+    eos_text = ''
+    bos_text = ''
+    if tokenizer_name == 'gpt2':
+        eos_text = '<|endoftext|>'
+    elif tokenizer_name == 'facebook/opt-125m':
+        bos_text = '</s>'
 
     path = get_abs_data_path(data_local)
     shutil.rmtree(path, ignore_errors=True)
     if pretokenize:
-        os.system(
-            f'python llmfoundry/common/convert_dataset.py --dataset c4 --data_subset en --out_root {path} --splits val_small --concat_tokens 2048 --tokenizer {tokenizer_name} {tokenizer_args}'
-        )
+        main_hf(
+            Namespace(
+                **{
+                    'dataset': 'c4',
+                    'data_subset': 'en',
+                    'splits': [split],
+                    'out_root': path,
+                    'compression': None,
+                    'concat_tokens': 2048,
+                    'tokenizer': tokenizer_name,
+                    'bos_text': bos_text,
+                    'eos_text': eos_text,
+                    'no_wrap': False
+                }))
     else:
-        os.system(
-            f'python llmfoundry/common/convert_dataset.py --dataset c4 --data_subset en --out_root {path} --splits val_small'
-        )
+        main_hf(
+            Namespace(
+                **{
+                    'dataset': 'c4',
+                    'data_subset': 'en',
+                    'splits': [split],
+                    'out_root': path,
+                    'compression': None,
+                    'concat_tokens': None,
+                    'tokenizer': tokenizer_name,
+                    'bos_text': bos_text,
+                    'eos_text': eos_text,
+                    'no_wrap': False
+                }))
     if not os.path.isdir(path):
         raise RuntimeError(f'c4 dataset at {path} not set up as expected')
 
-    test_cfg = get_config(conf_path='llmfoundry/yamls/mosaic_gpt/125m.yaml')
+    test_cfg = get_config(
+        conf_path='scripts/train/yamls/pretrain/mpt-125m.yaml')
     test_cfg.data_local = data_local
     test_cfg.eval_loader.dataset.split = split
+    test_cfg.dataset = om.create({
+        'num_canonical_nodes': 1,
+        'predownload': 3000,
+    })
 
     tokenizer = build_tokenizer(
         om.create({
@@ -121,57 +158,59 @@ def test_denoising_dataloader(decoder_only_format, pretokenize, packing_ratio):
     if (decoder_only_format is False) and (packing_ratio is not None):
         pytest.xfail('packing_ratio only supported for decoder-only format.')
 
-    cfg = {
-        'name': 'text_denoising',
-        'dataset': {
-            'local': path,
-            'remote': path,
-            'split': 'val_small',
-            'shuffle': False,
-            'max_seq_len': max_seq_len,
-            'packing_ratio': packing_ratio,
-            'predownload': 1000,
-            'keep_zip': False,  # in case we need compressed files after testing
-        },
-        'mixture_of_denoisers': {
-            'decoder_only_format': decoder_only_format,
-            'span_mean_lengths_and_ratios': [[3, .15], [8, .5]],
-            'sequence_mask_ratios': 0.25,
-        },
-        'drop_last': False,
-        'num_workers': 0,
-    }
-    cfg = om.create(cfg)
-    device_batch_size = 2
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cfg = {
+            'name': 'text_denoising',
+            'dataset': {
+                'local': tmpdir,
+                'remote': path,
+                'split': 'val_xsmall',
+                'shuffle': False,
+                'max_seq_len': max_seq_len,
+                'packing_ratio': packing_ratio,
+                'predownload': 1000,
+                'keep_zip': False,
+            },
+            'mixture_of_denoisers': {
+                'decoder_only_format': decoder_only_format,
+                'span_mean_lengths_and_ratios': [[3, .15], [8, .5]],
+                'sequence_mask_ratios': 0.25,
+            },
+            'drop_last': False,
+            'num_workers': 0,
+        }
+        cfg = om.create(cfg)
+        device_batch_size = 2
 
-    expected_keys = ['input_ids', 'attention_mask', 'labels']
-    if decoder_only_format:
-        expected_keys += ['bidirectional_mask']
-    else:
-        expected_keys += ['decoder_attention_mask', 'decoder_input_ids']
+        expected_keys = ['input_ids', 'attention_mask', 'labels']
+        if decoder_only_format:
+            expected_keys += ['bidirectional_mask']
+        else:
+            expected_keys += ['decoder_attention_mask', 'decoder_input_ids']
 
-    if packing_ratio is not None:
-        expected_keys += ['sequence_id']
+        if packing_ratio is not None:
+            expected_keys += ['sequence_id']
 
-    tokenizer = build_tokenizer(
-        om.create({
-            'name': tokenizer_name,
-            'kwargs': {
-                'model_max_length': max_seq_len
-            }
-        }))
+        tokenizer = build_tokenizer(
+            om.create({
+                'name': tokenizer_name,
+                'kwargs': {
+                    'model_max_length': max_seq_len
+                }
+            }))
 
-    loader = build_text_denoising_dataloader(cfg, tokenizer, device_batch_size)
-    batch_ix = 0
-    for batch in loader:
-        for k in expected_keys:
-            assert k in batch
-            t = batch[k]
-            assert t.shape[0] == device_batch_size
-            assert t.shape[1] <= max_seq_len
-        batch_ix += 1
-        if batch_ix >= 5:
-            break
+        loader = build_text_denoising_dataloader(cfg, tokenizer,
+                                                 device_batch_size)
+        batch_ix = 0
+        for batch in loader:
+            for k in expected_keys:
+                assert k in batch
+                t = batch[k]
+                assert t.shape[0] == device_batch_size
+                assert t.shape[1] <= max_seq_len
+            batch_ix += 1
+            if batch_ix >= 5:
+                break
 
 
 @pytest.mark.parametrize('decoder_only_format', [True, False])
@@ -189,7 +228,7 @@ def test_finetuning_dataloader(decoder_only_format, allow_pad_trimming,
     cfg = {
         'name': 'finetuning',
         'dataset': {
-            'name': 'tatsu-lab/alpaca',
+            'hf_name': 'tatsu-lab/alpaca',
             'split': 'train',
             'max_seq_len': max_seq_len,
             'decoder_only_format': decoder_only_format,

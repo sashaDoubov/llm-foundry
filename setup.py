@@ -3,9 +3,10 @@
 import os
 import re
 
+import setuptools
 from setuptools import setup
 
-_PACKAGE_NAME = 'mosaicml-llm'
+_PACKAGE_NAME = 'llm-foundry'
 _PACKAGE_DIR = 'llmfoundry'
 _REPO_REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 _PACKAGE_REAL_PATH = os.path.join(_REPO_REAL_PATH, _PACKAGE_DIR)
@@ -46,22 +47,16 @@ classifiers = [
 ]
 
 install_requires = [
-    'mosaicml==0.13.4',
-    'omegaconf>=2.2.3,<3',
+    'composer[nlp,wandb]>=0.14.1,<0.15',
+    'mosaicml-streaming>=0.4.1,<0.5',
+    'torch==1.13.1',
     'datasets==2.10.1',
-    'transformers>=4.25.1,<4.29',
-    'mosaicml-streaming==0.4.0',
+    'sentencepiece==0.1.97',
+    'einops==0.5.0',
+    'omegaconf>=2.2.3,<3',
     'pynvml<12',
     'slack-sdk<4',
-    'torch==1.13.1',
-    'einops==0.5.0',
-    'mosaicml-cli>=0.2.32,<1',
-    'transformers==4.28.1',
-    'omegaconf==2.2.3',
-    'wandb==0.13.6',
-    'pytest>=7.2.1,<8',
-    'torchmetrics==0.11.3',
-    'sentencepiece==0.1.97',
+    'mosaicml-cli>=0.3,<1',
     'onnx==1.13.1',
     'onnxruntime==1.14.1',
 ]
@@ -81,6 +76,7 @@ extra_deps['dev'] = [
 extra_deps['gpu'] = [
     'flash-attn==v1.0.3.post0',
     'triton==2.0.0.dev20221202',
+    # PyPI does not support direct dependencies, so we remove this line before uploading from PyPI
     'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
 ]
 
@@ -94,8 +90,12 @@ setup(
     description='LLM Foundry',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/mosaicml/examples/',
-    package_dir={_PACKAGE_DIR: _PACKAGE_REAL_PATH},
+    url='https://github.com/mosaicml/llm-foundry/',
+    package_data={
+        'llmfoundry': ['py.typed'],
+    },
+    packages=setuptools.find_packages(
+        exclude=['.github*', 'mcli*', 'scripts*', 'tests*']),
     classifiers=classifiers,
     install_requires=install_requires,
     extras_require=extra_deps,

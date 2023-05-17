@@ -14,7 +14,7 @@ integrations:
   git_repo: sashaDoubov/llm-foundry
   git_branch: sasha/pile-of-law # use your branch
   # git_commit: # OR use your commit hash
-  pip_install: -e .[llm]
+  pip_install: -e .[gpu]
   ssh_clone: false # Should be true if using a private repo
 
 command: |
@@ -28,10 +28,10 @@ command: |
        --splits train_small val_small train val \
        --data_subset all \
        --tokenizer "EleutherAI/gpt-neox-20b" \
-       --eos_text '<|endoftext|>' --no_wrap
+       --eos_text '<|endoftext|>'
 
   # Upload the dataset to OCI
   oci os object bulk-upload \
     -bn mosaicml-internal-datasets --region us-phoenix-1 \
-    --object-prefix pile-of-law/base/pretok-gpt-neox-20b/ \
+    --object-prefix pile-of-law/base-with-wrap/pretok-gpt-neox-20b/ \
     --src-dir ./pile-of-law/

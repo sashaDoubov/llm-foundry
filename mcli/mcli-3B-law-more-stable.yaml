@@ -19,7 +19,7 @@ command: |
     train_loader.dataset.split=train \
     eval_loader.dataset.split=val_small \
     data_local=./pile-of-law \
-    max_duration=30000ba \
+    max_duration=60000ba \
     eval_interval=5000ba \
     data_remote=oci://mosaicml-internal-datasets/pile-of-law/base-with-wrap/pretok-gpt-neox-20b/ \
     save_interval=1000ba \

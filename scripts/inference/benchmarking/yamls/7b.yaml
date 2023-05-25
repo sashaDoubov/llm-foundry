@@ -1,6 +1,6 @@
 benchmark_name: MosaicDeepspeed_1xA100-40GB-bf16-GPT-7B
 
-max_seq_len: 131200
+max_seq_len: 65664
 tokenizer_name: EleutherAI/gpt-neox-20b
 
 # Tokenizer
@@ -31,8 +31,8 @@ model_dtype: bf16
 autocast_dtype: null
 use_deepspeed: false
 
-batch_sizes: [1]
-input_lengths: [128, 256, 512, 1024, 2048]
+batch_sizes: [1] #[1, 2, 4, 8, 16, 32, 64]
+input_lengths: [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
 output_lengths: [1, 11, 101]
 use_cache: true
 

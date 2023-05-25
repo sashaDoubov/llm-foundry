@@ -17,7 +17,7 @@ global_seed: 17
 
 # Model
 model:
-  name: mosaic_gpt
+  name: mpt_causal_lm
   init_device: meta
   tokenizer_name: ${tokenizer_name}
   # d_model: 1024
@@ -26,9 +26,11 @@ model:
   mlp_ratio: 4
   max_seq_len: ${max_seq_len}
   vocab_size: 50368
-  attn_impl: triton
+  attn_config:
+    attn_impl: torch #triton
   no_bias: True
   alibi: True
+  loss_fn: torch_crossentropy
 
 # Tokenizer
 tokenizer:
@@ -99,15 +101,15 @@ device_train_microbatch_size: 16
 # device_train_microbatch_size: auto
 precision: amp_bf16
 
-# # FSDP
-# fsdp_config:
-#   sharding_strategy: FULL_SHARD
-#   mixed_precision: PURE
-#   activation_checkpointing: false
-#   activation_checkpointing_reentrant: false
-#   activation_cpu_offload: false
-#   limit_all_gathers: true
-#   verbose: false
+# FSDP
+fsdp_config:
+  sharding_strategy: FULL_SHARD
+  mixed_precision: PURE
+  activation_checkpointing: false
+  activation_checkpointing_reentrant: false
+  activation_cpu_offload: false
+  limit_all_gathers: true
+  verbose: false
 
 # Logging
 progress_bar: false

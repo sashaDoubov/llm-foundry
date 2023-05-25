@@ -11,10 +11,12 @@ global_seed: 17
 
 
 
+eos_token_id: 50256
 # Model
 model:
-  name: mosaic_gpt
-  init_device: meta
+  attn_uses_sequence_id: true
+  name: mpt_causal_lm
+  init_device: cpu # meta
   tokenizer_name: ${tokenizer_name}
   # d_model: 1024
   # n_heads: 16
@@ -22,14 +24,17 @@ model:
   mlp_ratio: 4
   max_seq_len: ${max_seq_len}
   vocab_size: 50368
-  attn_impl: triton
+  attn_config:
+    attn_impl: torch_2 #triton
+    alibi: True
+    attn_uses_sequence_id: True
   no_bias: True
-  alibi: True
+  loss_fn: torch_crossentropy
 
   mup:
     save_shapes: False
     load_path: /root/base_shape_rerun.pickle
-    embed_scale: 100.0
+    embed_scale: 1.0
 
 # Tokenizer
 tokenizer:
@@ -48,6 +53,7 @@ train_loader:
     tokenizer_name: ${tokenizer_name}
     max_seq_len: ${max_seq_len}
     shuffle_seed: ${global_seed}
+    eos_token_id: ${eos_token_id}
   drop_last: true
   num_workers: 8
 
@@ -61,6 +67,7 @@ eval_loader:
     tokenizer_name: ${tokenizer_name}
     max_seq_len: ${max_seq_len}
     shuffle_seed: ${global_seed}
+    eos_token_id: ${eos_token_id}
   drop_last: false
   num_workers: 8
 
@@ -100,15 +107,16 @@ device_train_microbatch_size: 16
 # device_train_microbatch_size: auto
 precision: amp_bf16
 
-# # FSDP
-# fsdp_config:
-#   sharding_strategy: FULL_SHARD
-#   mixed_precision: PURE
-#   activation_checkpointing: false
-#   activation_checkpointing_reentrant: false
-#   activation_cpu_offload: false
-#   limit_all_gathers: true
-#   verbose: false
+# FSDP
+fsdp_config:
+  sharding_strategy: FULL_SHARD
+  mixed_precision: PURE
+  activation_checkpointing: false
+  activation_checkpointing_reentrant: false
+  activation_cpu_offload: false
+  limit_all_gathers: true
+  verbose: false
+  use_orig_params: True
 
 # Logging
 progress_bar: false

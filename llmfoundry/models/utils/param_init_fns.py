@@ -394,10 +394,6 @@ def kaiming_normal_param_init_fn_(
                                 a=init_gain,
                                 mode=fan_mode,
                                 nonlinearity=init_nonlinearity)
-    for name, param in module.named_parameters():
-        print(name)
-        print(param.infshape)
-
     generic_param_init_fn_(
         module=module,
         init_fn_=kaiming_normal_,

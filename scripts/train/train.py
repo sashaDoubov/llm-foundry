@@ -25,7 +25,7 @@ from llmfoundry.utils.builders import (build_algorithm, build_callback,
                                        build_tokenizer)
 from llmfoundry.utils.config_utils import log_config, update_batch_size_info
 
-from llmfoundry.common.mup_helpers import get_infshapes_custom
+from llmfoundry.callbacks.mup_helpers import get_infshapes_custom
 from mup import make_base_shapes, set_base_shapes, get_shapes, get_infshapes
 from composer.utils import (get_file, maybe_create_object_store_from_uri,
                             parse_uri)
@@ -203,6 +203,17 @@ def main(cfg):
             print(base_shape)
             set_base_shapes(model, base_shape)
             print(get_infshapes_custom(model))
+
+            # hacky way to get the output layer width mult to be compatible with 
+            for name, param in model.named_parameters():
+                if "wte" in name:
+                    output_width_mult = param.infshape.width_mult()
+                    break
+            else:
+                raise RuntimeError("Did not find the wte layer!")
+            
+            # manually override the logit scale param
+            model.model.logit_scale = 1./output_width_mult
 
             model.apply(model.model.param_init_fn)
 

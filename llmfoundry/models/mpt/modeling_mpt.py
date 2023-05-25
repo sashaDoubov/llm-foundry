@@ -114,8 +114,7 @@ class MPTModel(MPTPreTrainedModel):
             ) for _ in range(config.n_layers)
         ])
         self.norm_f = norm_class(config.d_model, device=config.init_device)
-        if self.mup:
-               self.tied_output = MuSharedReadout(self.wte.weight)
+
 
         # if config.init_device != 'meta':
         #     print(
@@ -508,11 +507,8 @@ class MPTForCausalLM(MPTPreTrainedModel):
                                    output_hidden_states=output_hidden_states,
                                    use_cache=use_cache)
 
-        if self.mup:
-            logits = self.transformer.tied_output(outputs.last_hidden_state)
-        else:
-            logits = F.linear(outputs.last_hidden_state,
-                          self.transformer.wte.weight)
+        logits = F.linear(outputs.last_hidden_state,
+                        self.transformer.wte.weight)
 
         if self.logit_scale is not None:
             if self.logit_scale == 0:

@@ -120,7 +120,7 @@ def build_finetuning_dataloader(cfg: DictConfig, tokenizer: Tokenizer,
             split=cfg.dataset.get('split'),
             shuffle=cfg.dataset.get('shuffle', False),
             predownload=cfg.dataset.get('predownload', 100_000),
-            keep_zip=cfg.dataset.get('keep_zip', None),
+            keep_zip=cfg.dataset.get('keep_zip', False),
             download_retry=cfg.dataset.get('download_retry', 2),
             download_timeout=cfg.dataset.get('download_timeout', 60),
             validate_hash=cfg.dataset.get('validate_hash', None),
@@ -206,7 +206,7 @@ def _validate_config(dataset_cfg: DictConfig):
                 'Those keys are used when building from a HuggingFace dataset, but ' +\
                 'setting `remote` instructs the dataset to build from a streaming dataset.'
             )
-        if dataset_cfg.get('local') is not None:
+        if dataset_cfg.get('local') is None:
             raise ValueError(
                 'Using a streaming dataset requires setting both `remote` and `local`, ' +\
                 'but dataset.local is None.'

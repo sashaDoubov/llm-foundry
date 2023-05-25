@@ -88,7 +88,8 @@ def test_correct_padding(tokenizer_name, pretokenize, batch_size=4):
     if not os.path.isdir(path):
         raise RuntimeError(f'c4 dataset at {path} not set up as expected')
 
-    test_cfg = get_config(conf_path='scripts/train/yamls/mpt/125m.yaml')
+    test_cfg = get_config(
+        conf_path='scripts/train/yamls/pretrain/mpt-125m.yaml')
     test_cfg.data_local = data_local
     test_cfg.eval_loader.dataset.split = split
     test_cfg.dataset = om.create({
@@ -176,7 +177,7 @@ def test_denoising_dataloader(decoder_only_format, pretokenize, packing_ratio):
                 'sequence_mask_ratios': 0.25,
             },
             'drop_last': False,
-            'num_workers': 0,
+            'num_workers': 4,
         }
         cfg = om.create(cfg)
         device_batch_size = 2
@@ -236,7 +237,7 @@ def test_finetuning_dataloader(decoder_only_format, allow_pad_trimming,
             'shuffle': True,
         },
         'drop_last': False,
-        'num_workers': 0,
+        'num_workers': 4,
         'pin_memory': False,
         'prefetch_factor': 2,
         'persistent_workers': False,

@@ -42,6 +42,11 @@ from llmfoundry.models.utils.meta_init_context import init_empty_weights
 from llmfoundry.models.utils.param_init_fns import (  # type: ignore
     MODEL_INIT_REGISTRY, generic_param_init_fn_)
 
+try:
+    from llmfoundry.models.layers.flash_attn_triton import flash_attn_func
+except:
+    pass
+
 Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
 from mup import MuSharedReadout
@@ -652,7 +657,9 @@ class ComposerMPTCausalLM(HuggingFaceModel):
                 self.loss_fn = FusedCrossEntropyLoss(ignore_index=-100)
             except:
                 raise ValueError(
-                    'Fused Cross Entropy is not installed. Either (1) have a CUDA-compatible GPU and `pip install .[gpu]`, or (2) set your config model.loss_fn=torch_crossentropy.'
+                    'Fused Cross Entropy is not installed. Either (1) have a CUDA-compatible GPU '
+                    'and `pip install .[gpu]` if installing from source or `pip install xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy` '
+                    'if installing from pypi, or (2) set your config model.loss_fn=torch_crossentropy.'
                 )
         elif loss_fn_config == 'torch_crossentropy':
             self.loss_fn = nn.CrossEntropyLoss(ignore_index=-100)

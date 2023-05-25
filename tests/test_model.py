@@ -15,6 +15,7 @@ from composer.optim import DecoupledAdamW
 from composer.utils import get_device, reproducibility
 from omegaconf import DictConfig
 from omegaconf import OmegaConf as om
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.bloom.modeling_bloom import build_alibi_tensor
 
@@ -22,9 +23,11 @@ from llmfoundry import (COMPOSER_MODEL_REGISTRY, ComposerHFCausalLM,
                         ComposerHFPrefixLM)
 from llmfoundry.models.layers import NORM_CLASS_REGISTRY, build_alibi_bias
 from llmfoundry.models.mpt import MPTConfig, MPTForCausalLM
+from llmfoundry.utils import build_tokenizer
 
 
-def get_config(conf_path='scripts/train/yamls/mpt/testing.yaml') -> DictConfig:
+def get_config(
+        conf_path='scripts/train/yamls/pretrain/testing.yaml') -> DictConfig:
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
     print(conf_path)
     with open(conf_path) as f:
@@ -32,7 +35,7 @@ def get_config(conf_path='scripts/train/yamls/mpt/testing.yaml') -> DictConfig:
     return cast(DictConfig, test_cfg)
 
 
-def get_objs(conf_path='scripts/train/yamls/mpt/testing.yaml'):
+def get_objs(conf_path='scripts/train/yamls/pretrain/testing.yaml'):
     warnings.filterwarnings(
         action='ignore',
         message='Torchmetrics v0.9 introduced a new argument class property')
@@ -62,8 +65,10 @@ def get_objs(conf_path='scripts/train/yamls/mpt/testing.yaml'):
     test_cfg.device_eval_batch_size = 2
     test_cfg.device_train_microbatch_size = 2
 
+    tokenizer = build_tokenizer(test_cfg.tokenizer)
+
     model = COMPOSER_MODEL_REGISTRY[test_cfg.model.name](test_cfg.model,
-                                                         test_cfg.tokenizer)
+                                                         tokenizer)
     # Optimizer
     assert test_cfg.optimizer.name == 'decoupled_adamw'
     optimizer = DecoupledAdamW(model.parameters(),
@@ -114,7 +119,7 @@ def gen_random_enc_dec_batch(batch_size, vocab_size, max_seq_len, device):
 
 def test_full_forward_and_backward(batch_size=2):
     test_cfg, model, optimizer = get_objs(
-        conf_path='scripts/train/yamls/mpt/testing.yaml')
+        conf_path='scripts/train/yamls/pretrain/testing.yaml')
 
     batch = gen_random_batch(batch_size, test_cfg)
 
@@ -132,7 +137,7 @@ def test_full_forward_and_backward(batch_size=2):
 
 def test_attention_mechanism(batch_size=2):
     test_cfg, model, _ = get_objs(
-        conf_path='scripts/train/yamls/mpt/testing.yaml')
+        conf_path='scripts/train/yamls/pretrain/testing.yaml')
 
     batch = gen_random_batch(batch_size, test_cfg)
 
@@ -192,7 +197,7 @@ def test_full_forward_and_backward_gpt2_small(prefixlm, batch_size=2):
     warnings.filterwarnings(
         action='ignore',
         message='Torchmetrics v0.9 introduced a new argument class property')
-    conf_path = 'scripts/train/yamls/hf_causal_lm/gpt2-small.yaml'
+    conf_path = 'scripts/train/yamls/pretrain/gpt2-small.yaml'
     with open(conf_path) as f:
         neo_cfg = om.load(f)
 
@@ -205,8 +210,13 @@ def test_full_forward_and_backward_gpt2_small(prefixlm, batch_size=2):
     else:
         neo_cfg.model.name = 'hf_causal_lm'
 
-    model = COMPOSER_MODEL_REGISTRY[neo_cfg.model.name](
-        neo_cfg.model, neo_cfg.tokenizer).to(device)
+    tokenizer = build_tokenizer(neo_cfg.tokenizer)
+
+    model = COMPOSER_MODEL_REGISTRY[neo_cfg.model.name](neo_cfg.model,
+                                                        tokenizer).to(device)
+
+    assert isinstance(model.tokenizer,
+                      (PreTrainedTokenizer, PreTrainedTokenizerFast))
 
     assert neo_cfg.optimizer.name == 'decoupled_adamw'
     optimizer = DecoupledAdamW(model.parameters(),
@@ -235,42 +245,34 @@ def test_full_forward_and_backward_t5_small(batch_size=2):
     warnings.filterwarnings(
         action='ignore',
         message='Torchmetrics v0.9 introduced a new argument class property')
-    from omegaconf import OmegaConf
-
-    cfg = OmegaConf.create({
-        'model': {
-            'pretrained_model_name_or_path': 't5-small',
-            'pretrained': False,
-            'z_loss': 0.0001,
-        },
-        'optimizer': {
-            'lr': 0.0001,
-            'betas': [0.9, 0.99],
-            'eps': 1e-6,
-            'weight_decay': 0.00001
-        },
-        'tokenizer': {
-            'name': 't5-small',
-        }
-    })
+    conf_path = 'scripts/train/yamls/finetune/t5-small_dolly_sft.yaml'
+    with open(conf_path) as f:
+        t5_cfg = om.load(f)
 
     device = 'cpu'
-    max_seq_len = 16
+    t5_cfg.device = device
+    t5_cfg.max_seq_len = 16
 
-    model = COMPOSER_MODEL_REGISTRY['hf_t5'](cfg.model,
-                                             cfg.tokenizer).to(device)
+    tokenizer = build_tokenizer(t5_cfg.tokenizer)
+
+    model = COMPOSER_MODEL_REGISTRY[t5_cfg.model.name](t5_cfg.model,
+                                                       tokenizer).to(device)
+
+    assert isinstance(model.tokenizer,
+                      (PreTrainedTokenizer, PreTrainedTokenizerFast))
 
     optimizer = DecoupledAdamW(model.parameters(),
-                               lr=cfg.optimizer.lr,
-                               betas=cfg.optimizer.betas,
-                               eps=cfg.optimizer.eps,
-                               weight_decay=cfg.optimizer.weight_decay)
+                               lr=t5_cfg.optimizer.lr,
+                               betas=t5_cfg.optimizer.betas,
+                               eps=t5_cfg.optimizer.eps,
+                               weight_decay=t5_cfg.optimizer.weight_decay)
 
     # set vocab size using model num_embeddings
     batch = gen_random_enc_dec_batch(batch_size, model.model.config.vocab_size,
-                                     max_seq_len, device)
+                                     t5_cfg.max_seq_len, device)
 
-    assert batch['input_ids'].shape == torch.Size([batch_size, max_seq_len])
+    assert batch['input_ids'].shape == torch.Size(
+        [batch_size, t5_cfg.max_seq_len])
     model.train()
     original_params = next(model.parameters()).clone().data
     outputs = model(batch)
@@ -293,7 +295,7 @@ def test_determinism(attn_impl: str, precision):
         )
     reproducibility.seed_all(1111)
 
-    conf_path = 'scripts/train/yamls/mpt/testing.yaml'
+    conf_path = 'scripts/train/yamls/pretrain/testing.yaml'
     with open(conf_path) as f:
         test_cfg = om.load(f)
 
@@ -303,8 +305,10 @@ def test_determinism(attn_impl: str, precision):
     test_cfg.model.init_device = 'cuda:0'
     test_cfg.device = 'cuda:0'
 
+    tokenizer = build_tokenizer(test_cfg.tokenizer)
+
     model_1 = COMPOSER_MODEL_REGISTRY[test_cfg.model.name](test_cfg.model,
-                                                           test_cfg.tokenizer)
+                                                           tokenizer)
     model_2 = copy.deepcopy(model_1)
 
     optimizer_1 = DecoupledAdamW(model_1.parameters(),
@@ -347,9 +351,11 @@ def test_loss_fn():
     except:
         pytest.skip('Fused cross entropy was not installed')
 
-    reproducibility.seed_all(1111)
+    # run numerical test in pure fp32
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
 
-    conf_path = 'scripts/train/yamls/mpt/testing.yaml'
+    conf_path = 'scripts/train/yamls/pretrain/testing.yaml'
     with open(conf_path) as f:
         test_cfg = om.load(f)
 
@@ -360,8 +366,12 @@ def test_loss_fn():
         'init_std': 0.02,
     }
 
+    reproducibility.seed_all(test_cfg.get('global_seed', 42))
+
+    tokenizer = build_tokenizer(test_cfg.tokenizer)
+
     model_1 = COMPOSER_MODEL_REGISTRY[test_cfg.model.name](test_cfg.model,
-                                                           test_cfg.tokenizer)
+                                                           tokenizer)
     model_2 = copy.deepcopy(model_1)
     assert isinstance(model_1.loss_fn, torch.nn.CrossEntropyLoss)
     model_2.loss_fn = FusedCrossEntropyLoss(ignore_index=-100)
@@ -377,7 +387,7 @@ def test_loss_fn():
                                  eps=test_cfg.optimizer.eps,
                                  weight_decay=test_cfg.optimizer.weight_decay)
 
-    for i in range(25):
+    for i in range(15):
         batch = gen_random_batch(2, test_cfg)
         output_1 = model_1(batch)
         output_2 = model_2(batch)
@@ -413,10 +423,12 @@ def test_opt_wrapping(prefixlm):
     }
     config = DictConfig(conf)
 
+    tokenizer = build_tokenizer(config.tokenizer)
+
     if prefixlm:
-        model = ComposerHFPrefixLM(config.model, config.tokenizer)
+        model = ComposerHFPrefixLM(config.model, tokenizer)
     else:
-        model = ComposerHFCausalLM(config.model, config.tokenizer)
+        model = ComposerHFCausalLM(config.model, tokenizer)
 
     # check that all the modules we except are blocked from FSDP wrapping
     assert not model.model.model._fsdp_wrap

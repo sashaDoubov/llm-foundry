@@ -32,8 +32,14 @@ jobs:
           PYPI_PACKAGE_NAME="llm-foundry-test-$(date +%Y%m%d%H%M%S)"
         fi
 
+        # Remove the xentropy-cuda-lib and triton-pre-mlir dependencies as PyPI does not support
+        # direct installs. The error message for importing FusedCrossEntropy/flash_attn_triton
+        # gives instructions on how to install if a user tries to use it without this dependency.
+        sed '/xentropy-cuda-lib@git+https:\/\/github.com\/HazyResearch\/flash-attention.git@.*/d' -i setup.py
+        sed '/triton-pre-mlir@git+https:\/\/github.com\/vchiley\/triton.git@.*/d' -i setup.py
+
         python -m pip install --upgrade build twine
-        LLM_FOUNDRY_PACKAGE_NAME=$PYPI_PACKAGE_NAME python -m build
+        python -m build
         twine check --strict dist/*
 
     - name: Publish 📦 to PyPI
@@ -41,7 +47,7 @@ jobs:
       if: contains(github.ref, 'refs/tags/v')
       with:
         user: __token__
-        password: ${{ secrets.PROD_PYPI_API_TOKEN }}  # TODO: Update this secret name!
+        password: ${{ secrets.PROD_PYPI_API_TOKEN }}
 
     - name: Publish distribution 📦 to Test PyPI
       uses: pypa/gh-action-pypi-publish@release/v1

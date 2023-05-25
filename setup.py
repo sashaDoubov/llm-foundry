@@ -3,6 +3,7 @@
 import os
 import re
 
+import setuptools
 from setuptools import setup
 
 _PACKAGE_NAME = 'llm-foundry'
@@ -46,17 +47,20 @@ classifiers = [
 ]
 
 install_requires = [
-    'mosaicml[nlp,streaming,wandb]>=0.14.0,<0.15',
-    'torch>=2.0.0',
+    'composer[nlp,wandb]>=0.14.1,<0.15',
+    'mosaicml-streaming>=0.4.1,<0.5',
+    'torch>=1.13.1,<=2.0.1',
     'datasets==2.10.1',
     'sentencepiece==0.1.97',
     'einops==0.5.0',
     'omegaconf>=2.2.3,<3',
-    'pynvml<12',
     'slack-sdk<4',
     'mosaicml-cli>=0.3,<1',
     'onnx==1.13.1',
     'onnxruntime==1.14.1',
+    'cmake>=3.25.0,<=3.26.3',  # required for triton-pre-mlir below
+    # PyPI does not support direct dependencies, so we remove this line before uploading from PyPI
+    'triton-pre-mlir@git+https://github.com/vchiley/triton.git@triton_pre_mlir#subdirectory=python',
 ]
 
 extra_deps = {}
@@ -71,11 +75,15 @@ extra_deps['dev'] = [
     'packaging>=21,<23',
 ]
 
-# extra_deps['gpu'] = [
-#     'flash-attn==v1.0.3.post0',
-#     'triton==2.0.0.dev20221202',
-#     'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
-# ]
+extra_deps['tensorboard'] = [
+    'composer[tensorboard]>=0.14.1,<0.15',
+]
+
+extra_deps['gpu'] = [
+    'flash-attn==v1.0.3.post0',
+    # PyPI does not support direct dependencies, so we remove this line before uploading from PyPI
+    'xentropy-cuda-lib@git+https://github.com/HazyResearch/flash-attention.git@v0.2.8#subdirectory=csrc/xentropy',
+]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
@@ -88,7 +96,11 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/mosaicml/llm-foundry/',
-    package_dir={_PACKAGE_DIR: _PACKAGE_REAL_PATH},
+    package_data={
+        'llmfoundry': ['py.typed'],
+    },
+    packages=setuptools.find_packages(
+        exclude=['.github*', 'mcli*', 'scripts*', 'tests*']),
     classifiers=classifiers,
     install_requires=install_requires,
     extras_require=extra_deps,

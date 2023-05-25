@@ -1,3 +1,6 @@
+# Pretrain a gpt2 style model
+# this is NOT a finetuning run
+
 data_local: ./my-copy-c4
 data_remote: # If blank, files must be present in data_local
 tokenizer_name: gpt2

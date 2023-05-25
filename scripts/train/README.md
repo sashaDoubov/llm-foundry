@@ -2,13 +2,7 @@
 
 ## Installation
 
-If you haven't already, make sure to install the requirements:
-
-```bash
-git clone https://github.com/mosaicml/llm-foundry.git
-cd llm-foundry
-pip install -e ".[gpu]"  # or pip install -e . if no NVIDIA GPU
-```
+If you haven't already, make sure to [install the requirements](../../README.md#Installation).
 
 ## Dataset preparation
 To run pretraining, you'll need to make yourself a copy of a pretraining dataset. Check out the `llm-foundry/data_prep` folder for detailed instructions.
@@ -80,7 +74,7 @@ We run the `train.py` script using our `composer` launcher, which generates N pr
 If training on a single node, the `composer` launcher will autodetect the number of devices, so all you need to do is:
 <!--pytest.mark.skip-->
 ```bash
-composer train.py yamls/mpt/125m.yaml train_loader.dataset.split=train_small eval_loader.dataset.split=val_small
+composer train.py yamls/pretrain/mpt-125m.yaml train_loader.dataset.split=train_small eval_loader.dataset.split=val_small
 ```
 
 To train with high performance on multi-node clusters, the easiest way is with the MosaicML platform ;) Check out the `mcli/` folder for examples!
@@ -97,10 +91,10 @@ either directly via CLI, or via environment variables that can be read. Then lau
 # IP Address for Node 0 = [0.0.0.0]
 
 # Node 0
-composer --world_size 16 --node_rank 0 --master_addr 0.0.0.0 --master_port 7501 train.py yamls/mpt/125m.yaml
+composer --world_size 16 --node_rank 0 --master_addr 0.0.0.0 --master_port 7501 train.py yamls/pretrain/mpt-125m.yaml
 
 # Node 1
-composer --world_size 16 --node_rank 1 --master_addr 0.0.0.0 --master_port 7501 train.py yamls/mpt/125m.yaml
+composer --world_size 16 --node_rank 1 --master_addr 0.0.0.0 --master_port 7501 train.py yamls/pretrain/mpt-125m.yaml
 
 ```
 
@@ -117,14 +111,14 @@ composer --world_size 16 --node_rank 1 --master_addr 0.0.0.0 --master_port 7501 
 # export NODE_RANK=0
 # export MASTER_ADDR=0.0.0.0
 # export MASTER_PORT=7501
-composer train.py yamls/mpt/125m.yaml
+composer train.py yamls/pretrain/mpt-125m.yaml
 
 # Node 1
 # export WORLD_SIZE=16
 # export NODE_RANK=1
 # export MASTER_ADDR=0.0.0.0
 # export MASTER_PORT=7501
-composer train.py yamls/mpt/125m.yaml
+composer train.py yamls/pretrain/mpt-125m.yaml
 ```
 
 You should see logs being printed to your terminal like so.
@@ -159,12 +153,14 @@ This repo also contains utilities for Seq2Seq finetuning for LLMs, for example, 
 You can use the same `train.py` script to do finetuning.
 If you are unfamiliar with that script, or the LLM-Foundry in general, you should first go through the instructions above.
 
-In this section, we'll cover how to use the finetuning utilities.
+## If you want to finetune MPT-7B
+
+You should probably start with ``yamls/finetune/mpt-7b_dolly_sft.yaml`
 
 ## Data formatting
 
 You activate finetuning via the `train_loader` and `eval_loader` fields in your configuration YAML.
-We include some reference examples inside `yamls/mpt/finetuning/`.
+We include some reference examples inside `yamls/finetune/`.
 
 There are 3 different types of data sources you can use for finetuning:
 (1) [the HuggingFace Hub](#1-using-a-dataset-on-the-huggingface-hub),
@@ -230,6 +226,8 @@ def dogefacts_prep_fn(inp: Dict):
 For this example, let's say we add this function to a file that we can import from. For example, with
 `from my_data.formatting import dogefacts_prep_fn`
 
+**Still have questions about custom data preprocessing?** In the `./finetune_example/` directory, we demonstrate a more concrete example of training on a local dataset with custom preprocessing. Check out those resources for added information!
+
 ## Usage
 
 Now we'll cover the different ways you can use the finetuning utilities. This will mostly focus on how to configure your YAML, assuming you have already prepared any custom preprocessing functions as described above.
@@ -260,15 +258,14 @@ train_loader:
 ### **2) Using a local dataset**
 
 Let's say you have your finetuning dataset stored in local `jsonl` files.
-Reference this in your YAML, such as the one in `yamls/mpt/finetune/1b_local_data_sft.yaml`
+Reference this in your YAML, such as the one in `yamls/finetune/1b_local_data_sft.yaml`
 ```yaml
 train_loader:
     name: finetuning
     dataset:
-        hf_name: my-local-dataset
+        hf_name: json # assuming data files are json formatted
         hf_kwargs:
-            data_files:
-                train: /path/to/train.jsonl
+            data_dir: /path/to/data/dir/
         preprocessing_fn: my.import.path:my_preprocessing_fn
         split: train
         ...

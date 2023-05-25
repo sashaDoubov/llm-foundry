@@ -5,13 +5,12 @@ import os
 from typing import Union
 
 from composer import algorithms
-from composer.callbacks import (HealthChecker, LRMonitor, MemoryMonitor,
-                                OptimizerMonitor, RuntimeEstimator,
-                                SpeedMonitor)
+from composer.callbacks import (LRMonitor, MemoryMonitor, OptimizerMonitor,
+                                RuntimeEstimator, SpeedMonitor)
 from composer.core import Evaluator
 from composer.datasets.in_context_learning_evaluation import \
     get_icl_task_dataloader
-from composer.loggers import WandBLogger
+from composer.loggers import TensorboardLogger, WandBLogger
 from composer.optim import DecoupledAdamW
 from composer.optim.scheduler import (ConstantWithWarmupScheduler,
                                       CosineAnnealingWithWarmupScheduler,
@@ -50,10 +49,6 @@ def build_callback(name, kwargs):
     elif name == 'optimizer_monitor':
         return OptimizerMonitor(log_optimizer_metrics=kwargs.get(
             'log_optimizer_metrics', True),)
-    elif name == 'mup_activation_norms':
-        return GetActivationNorms()
-    elif name == 'health_checker':
-        return HealthChecker(**kwargs)
     elif name == 'generate_callback':
         prompts = kwargs.pop('prompts')
         return Generate(prompts=list(prompts), **kwargs)
@@ -72,6 +67,8 @@ def build_callback(name, kwargs):
 def build_logger(name, kwargs):
     if name == 'wandb':
         return WandBLogger(**kwargs)
+    elif name == 'tensorboard':
+        return TensorboardLogger(**kwargs)
     else:
         raise ValueError(f'Not sure how to build logger: {name}')
 

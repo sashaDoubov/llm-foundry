@@ -98,7 +98,7 @@ def test_with_xformers(seq_len):
     query = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)
     key = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)
     attn_bias = torch.zeros((1, 12, 1, seq_len), device='cuda',dtype=torch.bfloat16)
-    attn_bias = build_attn_bias(
+    attn_bias = build_attn_bias_with_xformers(
                 'torch',
                 attn_bias,
                 n_heads=12,

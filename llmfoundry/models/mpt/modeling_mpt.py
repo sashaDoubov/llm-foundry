@@ -86,7 +86,7 @@ class MPTModel(MPTPreTrainedModel):
             config.softmax_scale = 1. / (config.d_model / config.n_heads)
             print(f"{config.softmax_scale=}")
             # mup embed_scale
-            self.mup["embed_scale"] = self.mup.get("embed_scale", 10.0)
+            self.mup["embed_scale"] = self.mup.get("embed_scale", 1.0)
             print(f"{self.mup['embed_scale']=}")
 
 

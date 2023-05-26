@@ -1,5 +1,6 @@
 import torch
 import math
+
 def build_attn_bias(
     attn_impl,
     attn_bias,
@@ -8,7 +9,14 @@ def build_attn_bias(
     causal=False,
     alibi=False,
     alibi_bias_max=8,
-):
+):  
+    print(attn_impl)
+    print(attn_bias.shape)
+    print(n_heads)
+    print(seq_len)
+    print(causal)
+    print(alibi)
+    print(alibi_bias_max)
     if attn_impl == 'flash':
         return None
     elif attn_impl in ['torch', 'triton']:
@@ -24,6 +32,30 @@ def build_attn_bias(
                     device=device,
                     dtype=dtype,
                 ))
+        return attn_bias
+    elif attn_impl == 'xformers':
+        if alibi:
+            # in place add alibi to attn bias
+            device, dtype = attn_bias.device, attn_bias.dtype
+            attn_bias = attn_bias.add(
+                build_alibi_bias(
+                    n_heads,
+                    seq_len,
+                    full=True,
+                    alibi_bias_max=alibi_bias_max,
+                    device=device,
+                    dtype=dtype,
+                ))
+            if causal:
+                min_val = torch.finfo(attn_bias.dtype).min
+                s = attn_bias.shape[-1]
+                causal_mask = attn_bias.new_ones(s, s, dtype=torch.float16)
+                causal_mask = causal_mask.tril()
+                causal_mask = causal_mask.to(torch.bool)
+                causal_mask = ~causal_mask
+                causal_mask = causal_mask[-s:, -s:]
+                attn_bias = attn_bias.masked_fill(causal_mask.view(1, 1, s, s),
+                                                    min_val)
         return attn_bias
     else:
         raise ValueError(f'{attn_impl=} is an invalid setting.')
@@ -65,8 +97,6 @@ def build_alibi_bias(
     slopes = gen_slopes(n_heads, alibi_bias_max, device=device)
     alibi_bias = alibi_bias * slopes
     return alibi_bias.to(dtype=dtype)
-
-
 def foo(seq_len):
     query = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)
     key = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)

@@ -13,7 +13,7 @@ integrations:
 command: |
   pip install git+https://github.com/mosaicml/composer.git@dev
   cd llm-foundry/llmfoundry/models/layers/
-  python min_repro_2_failing.py
+  python min_repro.py
 
 
 image: mosaicml/pytorch:2.0.1_cu117-python3.10-ubuntu20.04 #mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04

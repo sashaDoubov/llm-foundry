@@ -1,5 +1,5 @@
 import torch
-import math
+from attention import build_alibi_bias
 def build_attn_bias(
     attn_impl,
     attn_bias,
@@ -28,46 +28,73 @@ def build_attn_bias(
     else:
         raise ValueError(f'{attn_impl=} is an invalid setting.')
 
-
-def gen_slopes(n_heads, alibi_bias_max=8, device=None):
-    _n_heads = 2**math.ceil(math.log2(n_heads))
-    m = torch.arange(1, _n_heads + 1, dtype=torch.float32, device=device)
-    m = m.mul(alibi_bias_max / _n_heads)
-    slopes = (1. / torch.pow(2, m))
-
-    if _n_heads != n_heads:
-        # if n_heads is not a power of two,
-        # Huggingface and FasterTransformer calculate slopes normally,
-        # then return this strided concatenation of slopes
-        slopes = torch.concat([slopes[1::2], slopes[::2]])[:n_heads]
-
-    return slopes.view(1, n_heads, 1, 1)
-
-
-def build_alibi_bias(
+def build_attn_bias_with_xformers(
+    attn_impl,
+    attn_bias,
     n_heads,
     seq_len,
-    full=False,
+    causal=False,
+    alibi=False,
     alibi_bias_max=8,
-    device=None,
-    dtype=None,
-):
-    alibi_bias = torch.arange(1 - seq_len, 1, dtype=torch.int32,
-                              device=device).view(1, 1, 1, seq_len)
-    if full:
-        # generate 1 x Heads x SeqLen x SeqLen alibi bias mask
-        # otherwise the mask is 1 x Heads x 1 x SeqLen (which is broadcast to the appropriate size)
-        alibi_bias = alibi_bias - torch.arange(
-            1 - seq_len, 1, dtype=torch.int32, device=device).view(
-                1, 1, seq_len, 1)
-        alibi_bias = alibi_bias.abs().mul(-1)
+):  
+    if attn_impl == 'flash':
+        return None
+    elif attn_impl in ['torch', 'triton']:
+        if alibi:
+            # in place add alibi to attn bias
+            device, dtype = attn_bias.device, attn_bias.dtype
+            attn_bias = attn_bias.add(
+                build_alibi_bias(
+                    n_heads,
+                    seq_len,
+                    full=not causal,
+                    alibi_bias_max=alibi_bias_max,
+                    device=device,
+                    dtype=dtype,
+                ))
+        return attn_bias
+    elif attn_impl == 'xformers':
+        if alibi:
+            # in place add alibi to attn bias
+            device, dtype = attn_bias.device, attn_bias.dtype
+            attn_bias = attn_bias.add(
+                build_alibi_bias(
+                    n_heads,
+                    seq_len,
+                    full=True,
+                    alibi_bias_max=alibi_bias_max,
+                    device=device,
+                    dtype=dtype,
+                ))
+            if causal:
+                min_val = torch.finfo(attn_bias.dtype).min
+                s = attn_bias.shape[-1]
+                causal_mask = attn_bias.new_ones(s, s, dtype=torch.float16)
+                causal_mask = causal_mask.tril()
+                causal_mask = causal_mask.to(torch.bool)
+                causal_mask = ~causal_mask
+                causal_mask = causal_mask[-s:, -s:]
+                attn_bias = attn_bias.masked_fill(causal_mask.view(1, 1, s, s),
+                                                    min_val)
+        return attn_bias
+    else:
+        raise ValueError(f'{attn_impl=} is an invalid setting.')
 
-    slopes = gen_slopes(n_heads, alibi_bias_max, device=device)
-    alibi_bias = alibi_bias * slopes
-    return alibi_bias.to(dtype=dtype)
 
+def test_without_xformers(seq_len):
+    query = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)
+    key = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)
+    attn_bias = torch.zeros((1, 12, 1, seq_len), device='cuda',dtype=torch.bfloat16)
+    attn_bias = build_attn_bias(
+                'torch',
+                attn_bias,
+                n_heads=12,
+                seq_len=seq_len,
+                causal=True,
+                alibi=True)
+    return attn_bias[:, :, -query.size(1):, -key.size(1):]
 
-def foo(seq_len):
+def test_with_xformers(seq_len):
     query = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)
     key = torch.randn((16, seq_len, 768), device='cuda',dtype=torch.bfloat16)
     attn_bias = torch.zeros((1, 12, 1, seq_len), device='cuda',dtype=torch.bfloat16)
@@ -81,6 +108,9 @@ def foo(seq_len):
     return attn_bias[:, :, -query.size(1):, -key.size(1):]
 
 
-print(foo(2048))
-opt_foo1 = torch.compile(foo)
-print(opt_foo1(2048))
+print(test_without_xformers(2048))
+print(test_with_xformers(2048))
+opt_without= torch.compile(test_without_xformers)
+opt_with = torch.compile(test_with_xformers)
+print(opt_without(2048))
+print(opt_with(2048))

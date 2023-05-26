@@ -1,0 +1,46 @@
+integrations:
+- integration_type: git_repo
+  git_repo: sashaDoubov/llm-foundry
+  git_branch: sasha/pile-of-law # use your branch
+  # git_commit: # OR use your commit hash
+  pip_install: -e .[gpu]
+  ssh_clone: false # Should be true if using a private repo
+- integration_type: wandb
+  project: sasha-finetune-7b
+  entity: mosaic-ml
+# We are fetching, converting, and training on the 'val' split
+# as it is small and quick to get going for this demo.
+# For real training runs, follow the instructions in `llm-foundry/scripts/train/README.md`
+# to convert and host the full 'train' dataset.
+
+command: |
+  cd llm-foundry/scripts
+  composer train/train.py train/yamls/finetune/mpt-7b_domain_adapt.yaml \
+  data_remote=oci://mosaicml-internal-datasets/pile-of-law/base-with-wrap/pretok-gpt-neox-20b/ \
+  optimizer.lr=0.000024 \
+  optimizer.name=decoupled_lionw \
+  optimizer.weight_decay=0.000024 \
+  global_train_batch_size=880 \
+  max_duration=1387ba \
+  save_interval=100ba \
+  autoresume=True \
+  eval_subset_num_batches=10ba \
+  save_folder=oci://mosaicml-internal-checkpoints/sash/pile-of-law-7b/{run_name}/checkpoints \
+  loggers.wandb="{}" \
+  save_num_checkpoints_to_keep=1
+
+scheduling:
+    resumable: true # Makes job preemptible.
+    priority: low # Allows higher priority jobs to preempt you
+
+image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
+# Mosaic Cloud will use run_name (with a unique suffix) to populate the env var $COMPOSER_RUN_NAME
+run_name: finetune-7b-on-pile-of-law
+
+gpu_num: 8
+# gpu_type: a100_40gb
+cluster: r0z0 # replace with your cluster here!
+
+# The below is injected as a YAML file: /mnt/config/parameters.yaml
+# but is not used in this example.
+parameters: {}

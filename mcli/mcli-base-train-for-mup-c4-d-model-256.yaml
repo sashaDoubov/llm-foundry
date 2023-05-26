@@ -5,6 +5,14 @@ integrations:
   # git_commit: # OR use your commit hash
   pip_install: -e .[gpu]
   ssh_clone: false # Should be true if using a private repo
+- integration_type: git_repo
+  git_repo: mosaicml/composer
+  # 0.13.4 doesn't have the right HF changes rn
+  # So this is the current commit hash as of 04/17/2023
+  # We will remove this install when we have a release
+  # with the appropriate changes.
+  git_branch: dev
+  pip_install: '.[all]'
 - integration_type: pip_packages
   # Install muP from main
   packages:
@@ -17,8 +25,8 @@ integrations:
 # For real training runs, follow the instructions in `examples/llm/README.md`
 # to convert and host the full 'train' dataset.
 command: |
-  cd llm-foundry/llmfoundry
-  composer main.py  /mnt/config/parameters.yaml \
+  cd llm-foundry/scripts
+  composer train/train.py  /mnt/config/parameters.yaml \
     max_duration=8000ba \
     eval_interval=150ba \
     eval_first=True \
@@ -26,7 +34,7 @@ command: |
     train_loader.dataset.split=train \
     eval_loader.dataset.split=val
 
-image: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
+image: mosaicml/pytorch:2.0.1_cu117-python3.10-ubuntu20.04
 
 # Mosaic Cloud will use run_name (with a unique suffix) to populate the env var $COMPOSER_RUN_NAME
 
@@ -53,8 +61,8 @@ parameters:
 
   # Model
   model:
-    name: mosaic_gpt
-    init_device: cpu
+    name: mpt_causal_lm
+    init_device: cpu #meta
     tokenizer_name: ${tokenizer_name}
     d_model: 256
     n_heads: 32
@@ -62,13 +70,14 @@ parameters:
     mlp_ratio: 4
     max_seq_len: ${max_seq_len}
     vocab_size: 50368
-    attn_impl: triton
     no_bias: True
-    alibi: True
-    attn_clip_qkv: 6
+    attn_config:
+      attn_impl: triton
+      clip_qkv: 6
+      alibi: True
     mup:
-      save_shapes: False
-      load_path: oci://mosaicml-internal-checkpoints/sasha/mup_shape_pkls/40m_param_proxy_model_may_1_23_alibi.pickle
+      save_shapes: True
+      load_path: oci://mosaicml-internal-checkpoints/sasha/mup_shape_pkls/40m_param_proxy_model_may_25_23_alibi.pickle
       # embed_scale: 1.0
 
   # Tokenizer
@@ -151,3 +160,12 @@ parameters:
 
   loggers:
     wandb: {}
+# # FSDP
+#   fsdp_config:
+#     sharding_strategy: FULL_SHARD
+#     mixed_precision: PURE
+#     activation_checkpointing: false
+#     activation_checkpointing_reentrant: false
+#     activation_cpu_offload: false
+#     limit_all_gathers: true
+#     verbose: false

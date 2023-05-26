@@ -101,6 +101,21 @@ callbacks:
   memory_monitor: {}
   runtime_estimator: {}
 
+  generate_callback:
+    batch_log_interval: 200 # update for hero run, e.g. 2000
+    do_sample: true
+    max_new_tokens: 100
+    prompts:
+    - This is a legal document about a machine learning company.
+    - |-
+      Residential Lease Agreement
+      I. THE PARTIES. This Residential Lease Agreement ("Agreement")
+    - Liebeck v. McDonald's
+    temperature: 1
+    top_k: 50
+    top_p: 0.95
+    use_cache: true
+
 # loggers:
 #   wandb: {}
 

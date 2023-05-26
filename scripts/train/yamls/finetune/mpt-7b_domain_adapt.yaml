@@ -15,6 +15,7 @@ model:
     attn_config:
       attn_impl: triton
       clip_qkv: 6
+      attn_uses_sequence_id: false
 
 # Tokenizer
 tokenizer:

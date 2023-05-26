@@ -1,4 +1,4 @@
-ntegrations:
+integrations:
 - integration_type: git_repo
   git_repo: sashaDoubov/llm-foundry
   git_branch: repro_tensor_issue
@@ -12,7 +12,7 @@ ntegrations:
 # to convert and host the full 'train' dataset.
 command: |
   pip install git+https://github.com/mosaicml/composer.git@dev
-  cd llmfoundry/models/layers/
+  cd llm-foundry/llmfoundry/models/layers/
   python min_repro.py
 
 

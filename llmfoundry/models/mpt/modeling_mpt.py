@@ -65,6 +65,7 @@ class MPTModel(MPTPreTrainedModel):
         self.prefix_lm = config.attn_config['prefix_lm']
         self.attn_uses_sequence_id = config.attn_config['attn_uses_sequence_id']
         self.alibi = config.attn_config['alibi']
+        self.nope = config.attn_config['nope']
         self.alibi_bias_max = config.attn_config['alibi_bias_max']
 
         if config.norm_type.lower() not in NORM_CLASS_REGISTRY.keys():
@@ -81,7 +82,7 @@ class MPTModel(MPTPreTrainedModel):
         self.wte = nn.Embedding(config.vocab_size,
                                 config.d_model,
                                 device=config.init_device)
-        if not self.alibi:
+        if not self.alibi and not self.nope:
             self.wpe = nn.Embedding(config.max_seq_len,
                                     config.d_model,
                                     device=config.init_device)
@@ -93,7 +94,6 @@ class MPTModel(MPTPreTrainedModel):
             ) for _ in range(config.n_layers)
         ])
         self.norm_f = norm_class(config.d_model, device=config.init_device)
-
         if config.init_device != 'meta':
             print(
                 f'You are using {config.init_device=}, but you can also use config.init_device="meta" with Composer + FSDP for fast initialization.'
@@ -166,7 +166,7 @@ class MPTModel(MPTPreTrainedModel):
 
         # flash does not support prefix_lm and will incorporate any
         # attention_mask inside the attention module
-        if self.attn_impl == 'flash':
+        if self.attn_impl == 'flash' or self.attn_impl == 'torch2':
             return self.attn_bias, attention_mask
 
         if self.attn_bias is not None:
@@ -327,7 +327,7 @@ class MPTModel(MPTPreTrainedModel):
         ), f'Cannot forward input with seq_len={S}, this model only supports seq_len<={self.config.max_seq_len}'
 
         tok_emb = self.wte(input_ids)  # type: ignore
-        if self.alibi:
+        if self.alibi or self.nope:
             x = tok_emb
         else:
             past_position = 0

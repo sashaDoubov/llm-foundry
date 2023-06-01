@@ -350,15 +350,17 @@ def torch2(
         raise RuntimeError("Need torch 2 installed")
 
 
-    q = rearrange(query, 'b s (h d) -> b s h d', h=n_heads)
-    k = rearrange(key, 'b s (h d) -> b s h d',
+    q = rearrange(query, 'b s (h d) -> b h s d', h=n_heads)
+    k = rearrange(key, 'b s (h d) -> b h s d',
                   h=1 if multiquery else n_heads)  # includes key.t()
-    v = rearrange(value, 'b s (h d) -> b s h d', h=1 if multiquery else n_heads)
+    v = rearrange(value, 'b s (h d) -> b h s d', h=1 if multiquery else n_heads)
 
-    out = scaled_dot_product_attention(q, k, v, dropout_p=dropout_p, is_causal=is_causal)
-    out = rearrange(out, 'b s h d -> b s (h d)')
+    with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+        out = scaled_dot_product_attention(q, k, v, dropout_p=dropout_p, is_causal=is_causal)
+    out = rearrange(out, 'b h s d -> b s (h d)')
 
-    return out
+    return out, None, None
+
 class MultiheadAttention(nn.Module):
     """Multi-head self attention.
 
@@ -421,6 +423,8 @@ class MultiheadAttention(nn.Module):
                     '`prefix_lm` we recommend using `attn_impl: flash` otherwise ' +\
                     'we recommend using `attn_impl: triton`.'
                 )
+        elif self.attn_impl == 'torch2':
+            self.attn_fn = torch2
         else:
             raise ValueError(f'{attn_impl=} is an invalid setting.')
 

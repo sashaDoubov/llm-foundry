@@ -95,6 +95,7 @@ def main(cfg):
     # Check for incompatibilities between the model and data loaders
     validate_config(cfg)
 
+    print(cfg.load_path)
     # Filter deprecation warning from torch internal usage
     warnings.filterwarnings(
         action='ignore',

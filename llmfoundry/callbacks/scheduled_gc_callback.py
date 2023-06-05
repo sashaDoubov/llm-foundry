@@ -11,9 +11,8 @@ from composer.loggers import Logger
 def gc_cuda():
     """Gargage collect Torch (CUDA) memory."""
     gc.collect()
-    # TODO (Sasha): uncomment this
-    # if torch.cuda.is_available():
-    #     torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 class ScheduledGarbageCollector(Callback):

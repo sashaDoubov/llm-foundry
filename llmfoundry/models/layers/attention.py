@@ -15,7 +15,6 @@ from torch import nn
 
 from llmfoundry.models.layers.norm import LPLayerNorm
 
-from torch.nn.functional import scaled_dot_product_attention as torch_2_scaled_dot_product_attention
 
 
 def torch_2_attn_fn(
@@ -32,6 +31,7 @@ def torch_2_attn_fn(
     needs_weights=False,
     multiquery=False):
 
+    from torch.nn.functional import scaled_dot_product_attention as torch_2_scaled_dot_product_attention
     import xformers.ops as xops
     
     q = rearrange(query, 'b s (h d) -> b s h d', h=n_heads)

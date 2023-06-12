@@ -1,7 +1,7 @@
 max_seq_len: 2048
 tokenizer_name: EleutherAI/gpt-neox-20b
 seed: 1
-precision: fp32
+precision: amp_fp16
 
 # Tokenizer
 tokenizer:
@@ -11,17 +11,17 @@ tokenizer:
 
 model:
   name: mpt_causal_lm
-  init_device: meta
-  d_model: 768
-  n_heads: 12
-  n_layers: 12
+  init_device: cpu #meta
+  d_model: 4096
+  n_heads: 32
+  n_layers: 32
   expansion_ratio: 4
   max_seq_len: ${max_seq_len}
   vocab_size: 50368
   attn_config:
     attn_impl: triton
 
-load_path: # Add your (optional) Composer checkpoint path here!
+load_path: oci://mosaicml-internal-checkpoints/sash/pile-of-law-7b/2x_smaller_lr_run_with_eval/checkpoints/ep0-ba1000-rank0.pt # Add your (optional) Composer checkpoint path here!
 
 device_eval_batch_size: 16
 
@@ -32,13 +32,25 @@ fsdp_config:
 
 icl_tasks:
 -
-  label: piqa
-  dataset_uri: eval/local_data/piqa.jsonl
-  num_fewshot: [5]
-  icl_task_type: multiple_choice
-  continuation_delimiter: 'Answer: '
--
-  label: lambada_openai
-  dataset_uri: eval/local_data/lambada_openai.jsonl
+  # label: overuling_full
+  # dataset_uri:  /root/processed_overruling.jsonl
+  label: overuling
+  dataset_uri:  /root/processed_overruling_small.jsonl
+  # num_fewshot: [0, 1, 5, 10]
   num_fewshot: [0]
-  icl_task_type: language_modeling
+  icl_task_type: multiple_choice
+  prompt_string: "An overruling sentence is a statement that nullifies a previous case decision as a precedent, by a constitutionally valid statute or a decision by the same or higher ranking court which establishes a different rule on the point of law involved."
+  example_delimiter: "\nStatement: "
+  continuation_delimiter: "\nQuestion: Does the above sentence meet the criteria for being an overruling? \nAnswer yes or no: "
+# -
+# -
+#   label: piqa
+#   dataset_uri: eval/local_data/piqa.jsonl
+#   num_fewshot: [5]
+#   icl_task_type: multiple_choice
+#   continuation_delimiter: 'Answer: '
+# -
+#   label: lambada_openai
+#   dataset_uri: eval/local_data/lambada_openai.jsonl
+#   num_fewshot: [0]
+#   icl_task_type: language_modeling

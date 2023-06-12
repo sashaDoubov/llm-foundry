@@ -1,7 +1,10 @@
-max_seq_len: 2048
+max_seq_len: 4096
 seed: 1
-model_name_or_path: EleutherAI/gpt-neo-125M
-precision: fp32
+model_name_or_path: /root/1b_finetuned_IFT #EleutherAI/gpt-neo-125M
+# model_name_or_path: /root/local_folder #EleutherAI/gpt-neo-125M
+# model_name_or_path: mosaicml/mpt-7b #EleutherAI/gpt-neo-125M
+precision: amp_fp16 #fp32
+# precision: fp32
 
 # Tokenizer
 tokenizer:
@@ -14,8 +17,13 @@ model:
   pretrained_model_name_or_path: ${model_name_or_path}
   init_device: cpu
   pretrained: true
+  config_overrides:
+    max_seq_len: ${max_seq_len}
+    attn_config:
+      attn_impl: triton
 
-load_path: # Add your (optional) Composer checkpoint path here!
+# load_path: oci://mosaicml-internal-checkpoints/sash/pile-of-law-7b/2x_larger_lr_run/checkpoints/ep1-ba1387-rank0.pt # Add your (optional) Composer checkpoint path here!
+# load_path: oci://mosaicml-internal-checkpoints/sash/pile-of-law-7b/2x_smaller_lr_run_with_eval/checkpoints/hf
 
 device_eval_batch_size: 16
 
@@ -26,13 +34,30 @@ fsdp_config:
 
 icl_tasks:
 -
-  label: piqa
-  dataset_uri: eval/local_data/piqa.jsonl
-  num_fewshot: [5]
+  label: overuling_full
+  dataset_uri:  /root/processed_overruling.jsonl
+  num_fewshot: [0, 1, 5, 10]
   icl_task_type: multiple_choice
-  continuation_delimiter: 'Answer: '
--
-  label: lambada_openai
-  dataset_uri: eval/local_data/lambada_openai.jsonl
-  num_fewshot: [0]
-  icl_task_type: language_modeling
+  prompt_string: "An overruling sentence is a statement that nullifies a previous case decision as a precedent, by a constitutionally valid statute or a decision by the same or higher ranking court which establishes a different rule on the point of law involved."
+  example_delimiter: "\nStatement: "
+  continuation_delimiter: "\nQuestion: Does the above statement meet the criteria for being an overruling? \nAnswer yes or no: "
+# -
+#   label: casehold 
+#   dataset_uri: oci://mosaicml-internal-datasets/pile-of-law/processed_casehold_small.jsonl # ADD YOUR OWN DATASET URI
+#   # num_fewshot: [0, 1, 5, 10]
+#   num_fewshot: [0]
+#   icl_task_type: multiple_choice
+#   continuation_delimiter: ' ' # this separates questi
+
+
+# -
+#   label: piqa
+#   dataset_uri: eval/local_data/piqa.jsonl
+#   num_fewshot: [5]
+#   icl_task_type: multiple_choice
+#   continuation_delimiter: 'Answer: '
+# -
+#   label: lambada_openai
+#   dataset_uri: eval/local_data/lambada_openai.jsonl
+#   num_fewshot: [0]
+#   icl_task_type: language_modeling

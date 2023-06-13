@@ -90,6 +90,7 @@ fsdp_config:
   activation_cpu_offload: false
   limit_all_gathers: true
   verbose: false
+  fsdp_state_dict_type: sharded
 
 # Logging
 progress_bar: false
@@ -117,6 +118,10 @@ callbacks:
     top_k: 50
     top_p: 0.95
     use_cache: true
+  mono_ckpt_saver:
+    batch_interval: 500
+    filename: ep{epoch}-ba{batch}/mono.pt
+    save_folder: ${save_folder}
 
 # loggers:
 #   wandb: {}

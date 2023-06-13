@@ -15,7 +15,7 @@ from omegaconf import OmegaConf as om
 from llmfoundry.models.model_registry import COMPOSER_MODEL_REGISTRY
 from llmfoundry.utils.builders import (build_icl_evaluators, build_logger,
                                        build_tokenizer)
-
+from llmfoundry.callbacks import PrintBatchContents
 
 def main(cfg):
     cfg.dist_timeout = cfg.get('dist_timeout', 600.0)
@@ -55,6 +55,7 @@ def main(cfg):
         progress_bar=False,
         log_to_console=True,
         dist_timeout=cfg.dist_timeout,
+        callbacks=[PrintBatchContents()],
     )
 
     if torch.cuda.is_available():

@@ -10,6 +10,7 @@ try:
                                                            LayerFreezing)
     from llmfoundry.callbacks.scheduled_gc_callback import \
         ScheduledGarbageCollector
+    from llmfoundry.callbacks.icl_eval_helpers import PrintEvalExample
 except ImportError as e:
     raise ImportError(
         'Please make sure to pip install . to get requirements for llm-foundry.'
@@ -22,4 +23,5 @@ __all__ = [
     'GlobalLRScaling',
     'LayerFreezing',
     'ScheduledGarbageCollector',
+    'PrintEvalExample'
 ]

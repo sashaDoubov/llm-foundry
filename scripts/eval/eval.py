@@ -16,6 +16,7 @@ from llmfoundry.callbacks import PrintEvalExample
 from llmfoundry.models.model_registry import COMPOSER_MODEL_REGISTRY
 from llmfoundry.utils.builders import (build_icl_evaluators, build_logger,
                                        build_tokenizer)
+from llmfoundry.utils.custom_f1_metric import InContextLearningQAF1
 
 
 def main(cfg):
@@ -28,6 +29,9 @@ def main(cfg):
     tokenizer = build_tokenizer(cfg.tokenizer)
     composer_model = COMPOSER_MODEL_REGISTRY[cfg.model.name](cfg.model,
                                                              tokenizer)
+    print(composer_model.val_metrics)
+    composer_model.val_metrics['InContextLearningQAF1'] = InContextLearningQAF1(
+    )
 
     evaluators, logger_keys = build_icl_evaluators(cfg.icl_tasks, tokenizer,
                                                    cfg.max_seq_len,

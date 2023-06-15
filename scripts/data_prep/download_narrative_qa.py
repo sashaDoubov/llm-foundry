@@ -11,52 +11,32 @@ from composer.utils import (get_file, maybe_create_object_store_from_uri,
 from datasets import load_dataset
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
-data = load_dataset('tau/scrolls', 'quality')
-import re
+data = load_dataset('tau/scrolls', 'narrative_qa')
 
 random.seed(0)
 
 
-def prep_quality(question, answers, gold, context):
+def prep_narrative(context, answer):
     return {
-        'query': f'Text: {context}\nQuestion: {question}\nAnswer:',
-        'choices': answers,
-        'gold': gold
+        'context': context,
+        'answer': answer,
     }
-
-
-def extract_question_answers(input_string):
-    pattern = r'(?s)^(.*?)\s*\n\s*\((A)\)\s*(.*?)\s*\n\s*\((B)\)\s*(.*?)\s*\n\s*\((C)\)\s*(.*?)\s*\n\s*\((D)\)\s*(.*?)\s*\n\s*(.*)$'
-    match = re.match(pattern, input_string)
-
-    if match:
-        question = match.group(1).strip()
-        answer_1 = match.group(3).strip()
-        answer_2 = match.group(5).strip()
-        answer_3 = match.group(7).strip()
-        answer_4 = match.group(9).strip()
-        rest_of_string = match.group(10).strip()
-
-        return question, [answer_1, answer_2, answer_3,
-                          answer_4], rest_of_string
-
-    return None
 
 
 # Example usage
 
 split = 'validation'
 base_oci_path = 'oci://mosaicml-internal-datasets/scrolls-icl'
-tokenize_lengths = False  #True
-upload = True
+tokenize_lengths = True
+upload = False
 
 if tokenize_lengths:
     tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
 
 data_length = len(data[split])
 for num, out_file in zip([10, 100, 500, len(data[split])], [
-        '/root/quality_small.jsonl', '/root/quality_medium.jsonl',
-        '/root/quality_500_samples.jsonl', '/root/quality_full.jsonl'
+        '/root/narrative_qa_small.jsonl', '/root/narrative_qa_medium.jsonl',
+        '/root/narrative_qa_500_samples.jsonl', '/root/narrative_qa_full.jsonl'
 ]):
     if tokenize_lengths:
         max_token_length = 0
@@ -74,20 +54,11 @@ for num, out_file in zip([10, 100, 500, len(data[split])], [
             if iter_num < 5:
                 print(i)
 
-            question, answers, context = extract_question_answers(
-                data[split]['input'][i])
+            context = data[split]['input'][i]
 
             out = data[split]['output'][i].strip()
-            bool_mask = [out == a for a in answers]
 
-            if not any(bool_mask):
-                print(question)
-                print(answers)
-                print(out)
-                raise Exception()
-
-            row = prep_quality(question, answers, bool_mask.index(True),
-                               context)
+            row = prep_narrative(context, out)
 
             if tokenize_lengths:
                 max_token_length = max(max_token_length,
@@ -105,4 +76,4 @@ for num, out_file in zip([10, 100, 500, len(data[split])], [
             print(prefix)
             object_store.upload_object(prefix, out_file)
     if tokenize_lengths:
-        print(max_token_length)
+        print(f'{max_token_length=}')

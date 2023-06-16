@@ -25,7 +25,10 @@ def prep_narrative(context, answer):
 
 split = 'validation'
 base_oci_path = 'oci://mosaicml-internal-datasets/scrolls-icl'
+# perform tokenization to print out how many (max) tokens are present
+# in the context
 tokenize_lengths = True
+# optionally upload to remote storage
 upload = True
 
 if tokenize_lengths:
@@ -45,14 +48,10 @@ for num, out_file in zip([10, 100, 500, len(data[split])], [
         sequence = random.sample(list(range(data_length)), num)
     else:
         sequence = range(data_length)
-    print(sequence)
 
     with open(out_file, 'w', encoding='utf8') as f:
 
         for iter_num, i in enumerate(tqdm.tqdm(sequence)):
-
-            if iter_num < 5:
-                print(i)
 
             context = data[split]['input'][i].strip()
 

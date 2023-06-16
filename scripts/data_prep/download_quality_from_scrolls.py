@@ -17,12 +17,16 @@ import re
 random.seed(0)
 
 
-def prep_quality(question, answers, gold, context):
+def prep_quality_q_last(question, answers, gold, context):
     return {
         'query': f'Text: {context}\nQuestion: {question}\nAnswer:',
         'choices': answers,
         'gold': gold
     }
+
+
+def prep_quality_q_first(answers, gold, context):
+    return {'query': context, 'choices': answers, 'gold': gold}
 
 
 def extract_question_answers(input_string):
@@ -43,20 +47,32 @@ def extract_question_answers(input_string):
     return None
 
 
-# Example usage
-
 split = 'validation'
 base_oci_path = 'oci://mosaicml-internal-datasets/scrolls-icl'
-tokenize_lengths = False  #True
+
+# perform tokenization to print out how many (max) tokens are present
+# in the context
+tokenize_lengths = True  #False  #True
+
+# optionally upload to remote storage
 upload = True
+
+# should the question go first or at the end of the prompt
+# Quality by default should have question_last = False
+question_last = True
+
+if question_last:
+    base_name = 'quality_q_last'
+else:
+    base_name = 'quality'
 
 if tokenize_lengths:
     tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
 
 data_length = len(data[split])
 for num, out_file in zip([10, 100, 500, len(data[split])], [
-        '/root/quality_small.jsonl', '/root/quality_medium.jsonl',
-        '/root/quality_500_samples.jsonl', '/root/quality_full.jsonl'
+        f'/root/{base_name}_small.jsonl', f'/root/{base_name}_medium.jsonl',
+        f'/root/{base_name}_500_samples.jsonl', f'/root/{base_name}_full.jsonl'
 ]):
     if tokenize_lengths:
         max_token_length = 0
@@ -65,17 +81,13 @@ for num, out_file in zip([10, 100, 500, len(data[split])], [
         sequence = random.sample(list(range(data_length)), num)
     else:
         sequence = range(data_length)
-    print(sequence)
 
     with open(out_file, 'w', encoding='utf8') as f:
 
         for iter_num, i in enumerate(tqdm.tqdm(sequence)):
 
-            if iter_num < 5:
-                print(i)
-
-            question, answers, context = extract_question_answers(
-                data[split]['input'][i])
+            input_data = data[split]['input'][i]
+            question, answers, context = extract_question_answers(input_data)
 
             out = data[split]['output'][i].strip()
             bool_mask = [out == a for a in answers]
@@ -86,8 +98,12 @@ for num, out_file in zip([10, 100, 500, len(data[split])], [
                 print(out)
                 raise Exception()
 
-            row = prep_quality(question, answers, bool_mask.index(True),
-                               context)
+            if question_last:
+                row = prep_quality_q_last(question, answers,
+                                          bool_mask.index(True), context)
+            else:
+                row = prep_quality_q_first(answers, bool_mask.index(True),
+                                           input_data)
 
             if tokenize_lengths:
                 max_token_length = max(max_token_length,
@@ -105,4 +121,4 @@ for num, out_file in zip([10, 100, 500, len(data[split])], [
             print(prefix)
             object_store.upload_object(prefix, out_file)
     if tokenize_lengths:
-        print(max_token_length)
+        print(f'max token length: {max_token_length}')

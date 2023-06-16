@@ -330,37 +330,6 @@ def triton_flash_attn_fn(
     return output, None, past_key_value
 
 
-def torch2(
-    query,
-    key,
-    value,
-    n_heads,
-    past_key_value=None,
-    softmax_scale=None,
-    attn_bias=None,
-    key_padding_mask=None,
-    is_causal=False,
-    dropout_p=0.0,
-    training=False,
-    needs_weights=False,
-    multiquery=False,):
-    try:
-        from torch.nn.functional import scaled_dot_product_attention
-    except ImportError:
-        raise RuntimeError("Need torch 2 installed")
-
-
-    q = rearrange(query, 'b s (h d) -> b h s d', h=n_heads)
-    k = rearrange(key, 'b s (h d) -> b h s d',
-                  h=1 if multiquery else n_heads)  # includes key.t()
-    v = rearrange(value, 'b s (h d) -> b h s d', h=1 if multiquery else n_heads)
-
-    with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
-        out = scaled_dot_product_attention(q, k, v, dropout_p=dropout_p, is_causal=is_causal)
-    out = rearrange(out, 'b h s d -> b s (h d)')
-
-    return out, None, None
-
 class MultiheadAttention(nn.Module):
     """Multi-head self attention.
 
@@ -423,8 +392,6 @@ class MultiheadAttention(nn.Module):
                     '`prefix_lm` we recommend using `attn_impl: flash` otherwise ' +\
                     'we recommend using `attn_impl: triton`.'
                 )
-        elif self.attn_impl == 'torch2':
-            self.attn_fn = torch2
         else:
             raise ValueError(f'{attn_impl=} is an invalid setting.')
 
@@ -544,8 +511,6 @@ class MultiQueryAttention(nn.Module):
                     '`prefix_lm` we recommend using `attn_impl: flash` otherwise ' +\
                     'we recommend using `attn_impl: triton`.'
                 )
-        elif self.attn_impl == 'torch2':
-            self.attn_fn = torch2
         else:
             raise ValueError(f'{attn_impl=} is an invalid setting.')
 
@@ -598,7 +563,7 @@ class MultiQueryAttention(nn.Module):
 
 def attn_bias_shape(attn_impl, n_heads, seq_len, alibi, prefix_lm, causal,
                     use_sequence_id):
-    if attn_impl == 'flash' or attn_impl == 'torch2':
+    if attn_impl == 'flash':
         return None
     elif attn_impl in ['torch', 'triton']:
         if alibi:

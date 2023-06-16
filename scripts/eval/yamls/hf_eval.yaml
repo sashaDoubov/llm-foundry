@@ -1,7 +1,7 @@
-max_seq_len: 2048
+max_seq_len: 256
 seed: 1
-model_name_or_path: EleutherAI/gpt-neo-125M
-precision: fp32
+model_name_or_path: mosaicml/mpt-7b-storywriter #mosaicml/mpt-7b # -storywriter #mosaicml/mpt-7b #EleutherAI/gpt-neo-125M
+precision: amp_fp16 #fp32
 
 # Tokenizer
 tokenizer:
@@ -14,10 +14,15 @@ model:
   pretrained_model_name_or_path: ${model_name_or_path}
   init_device: cpu
   pretrained: true
+  config_overrides:
+    max_seq_len: ${max_seq_len}
+    use_cache: False
+    attn_config:
+      attn_impl: triton
 
 load_path: # Add your (optional) Composer checkpoint path here!
 
-device_eval_batch_size: 16
+device_eval_batch_size: 1
 
 # FSDP config for model sharding
 fsdp_config:
@@ -26,13 +31,29 @@ fsdp_config:
 
 icl_tasks:
 -
-  label: piqa
-  dataset_uri: eval/local_data/piqa.jsonl
-  num_fewshot: [5]
-  icl_task_type: multiple_choice
-  continuation_delimiter: 'Answer: '
--
-  label: lambada_openai
-  dataset_uri: eval/local_data/lambada_openai.jsonl
+  # label: triviaqa
+  # dataset_uri: eval/local_data/triviaqa.jsonl
+  # num_fewshot:
+  # - 0
+  # batch_size: 1
+  # icl_task_type: question_answering
+  # metric_names:
+  # - InContextLearningQAF1
+  # prompt_string: '' # this goes at the beginning of each input
+  # example_delimiter: "\n" # this goes between fewshot examples
+  # continuation_delimiter: ' ' # this separates questions from answers
+
+  label: qspr
+  dataset_uri: oci://mosaicml-internal-datasets/scrolls-icl/qasper_small.jsonl #/root/quality_medium.jsonl
   num_fewshot: [0]
-  icl_task_type: language_modeling
+  icl_task_type: question_answering
+  metric_names:
+  - InContextLearningQAF1
+  prompt_string: 'The following passage has a question at the beginning, followed by the text. Return the answer to the question at the beginning of the text.\n' # this goes at the beginning of each input
+  example_delimiter: "\n" # this goes between fewshot examples
+  continuation_delimiter: 'Answer: ' # this separates questions from answers
+# -
+#   label: lambada_openai
+#   dataset_uri: eval/local_data/lambada_openai.jsonl
+#   num_fewshot: [0]
+#   icl_task_type: language_modeling

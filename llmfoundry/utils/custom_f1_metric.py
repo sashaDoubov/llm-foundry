@@ -48,10 +48,10 @@ class InContextLearningQAF1(InContextLearningQAAccuracy):
                        default=torch.tensor(0.),
                        dist_reduce_fx='sum')
 
-    def normalize_answer(self, answer: str):
+    def normalize_answer(self, s: str):
         """Lower text and remove punctuation, articles and extra whitespace.
 
-        Copied from https://github.com/mandarjoshi90/triviaqa/blob/master/evaluation/triviaqa_evaluation.py
+        Using the same processing as the Qasper task
         """
 
         def remove_articles(text: str) -> str:
@@ -60,23 +60,18 @@ class InContextLearningQAF1(InContextLearningQAAccuracy):
         def white_space_fix(text: str) -> str:
             return ' '.join(text.split())
 
-        def handle_punc(text: str) -> str:
-            exclude = set(string.punctuation +
-                          ''.join([u'‘', u'’', u'´', u'`']))
-            return ''.join(ch if ch not in exclude else ' ' for ch in text)
+        def remove_punc(text: str) -> str:
+            exclude = set(string.punctuation)
+            return ''.join(ch for ch in text if ch not in exclude)
 
         def lower(text: str) -> str:
             return text.lower()
 
-        def replace_underscore(text: str) -> str:
-            return text.replace('_', ' ')
-
-        return white_space_fix(
-            remove_articles(handle_punc(lower(
-                replace_underscore(answer))))).strip()
+        return white_space_fix(remove_articles(remove_punc(lower(s))))
 
     def update(self, outputs: List[str], labels: List[List[str]]):
         for sample_output, sample_labels in zip(outputs, labels):
+            assert len(sample_labels) == 1
             cleaned_sample_output_tokens = self.normalize_answer(
                 sample_output).split()
             cleaned_sample_labels_tokens = self.normalize_answer(

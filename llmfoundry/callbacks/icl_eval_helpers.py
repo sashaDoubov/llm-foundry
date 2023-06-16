@@ -32,7 +32,11 @@ class PrintEvalExample(Callback):
             print('\033[92m' + 'Example: ' + '\033[0m')
             print('-' * 10)
             example = state.batch['input_ids'][0]
+            if state.is_model_ddp:
+                tokenizer = state.model.module.tokenizer
+            else:
+                tokenizer = state.model.tokenizer
             print(
-                state.model.tokenizer.decode(example, skip_special_tokens=True))
+                tokenizer.decode(example, skip_special_tokens=True))
             self.batches_printed += 1
             print('-' * 10)

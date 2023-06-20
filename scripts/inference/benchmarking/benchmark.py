@@ -48,15 +48,30 @@ def main(config):
         autocast_context = nullcontext()
         print('NOT using autocast...')
 
-    inference_config = {
-        'replace_with_kernel_inject': True,
-        'dtype': model_dtype,
-        'replace_method': 'auto',
-        'enable_cuda_graph': False,
-        'tensor_parallel': {
-            'tp_size': 0
-        },
+    if config.use_deepspeed:
+        print("Using TP!")
+        from llmfoundry.models.layers import MPTBlock
+        inference_config = {
+            'replace_with_kernel_inject': False,
+            'dtype': model_dtype,
+            'replace_method': 'auto',
+            'injection_policy': {MPTBlock: ('attn.out_proj', 'ffn.down_proj')},
+            'tensor_parallel': {
+                'tp_size': config.num_devices
+            },
     }
+
+    else:
+        inference_config = {
+            'replace_with_kernel_inject': True,
+            'dtype': model_dtype,
+            'replace_method': 'auto',
+            'enable_cuda_graph': False,
+            'tensor_parallel': {
+                'tp_size': 0
+            },
+        }
+
 
     composer_model = COMPOSER_MODEL_REGISTRY[config.model.name](
         config.model, config.tokenizer)

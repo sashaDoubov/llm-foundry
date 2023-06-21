@@ -139,15 +139,20 @@ def main(config):
 
 
 if __name__ == '__main__':
-    if any("local_rank" in arg for arg in sys.argv):
+    using_deepseed = any("local_rank" in arg for arg in sys.argv)
+    if using_deepseed:
+        import os
         print(sys.argv)
         yaml_path = sys.argv[2]
         rank = int(sys.argv[1][len("--local_rank="):])
         args_list = sys.argv[3:]
+        os.environ["RANK"] = rank
     else:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
     with open(yaml_path) as f:
         yaml_config = om.load(f)
     cli_config = om.from_cli(args_list)
     config = om.merge(yaml_config, cli_config)
+    if using_deepseed:
+        config.device = rank
     main(config)

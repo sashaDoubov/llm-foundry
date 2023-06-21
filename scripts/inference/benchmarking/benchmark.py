@@ -49,7 +49,8 @@ def main(config):
         print('NOT using autocast...')
 
     if config.use_deepspeed:
-        print('Using TP!')
+        if config.device == 0:
+            print('Using TP!')
         from llmfoundry.models.layers import MPTBlock
         inference_config = {
             'replace_with_kernel_inject': False,
@@ -62,7 +63,8 @@ def main(config):
                 'tp_size': config.num_devices
             },
         }
-        print(f"{inference_config['tensor_parallel']['tp_size']=}")
+        if config.device == 0:
+            print(f"{inference_config['tensor_parallel']['tp_size']=}")
 
     else:
         inference_config = {

@@ -94,7 +94,7 @@ def main(config):
         model.to(device=device, dtype=model_dtype)
 
     n_params = sum(p.numel() for p in model.parameters())
-    if config.device == 0:
+    if not config.use_deepspeed or config.device == 0:
         print('n_params is: ', n_params)
 
         print(
@@ -137,7 +137,7 @@ def main(config):
                 ms_per_seq_output_token = mean_time * 1000 / output_length
 
                 run_name = f'{config.benchmark_name}_{batch_size}_{input_length}_{output_length}'
-                if config.device == 0:
+                if not config.use_deepspeed or config.device == 0:
                     print(
                         f'{run_name}, {mean_time:.3f}, {tokens_per_second:.3f}, {ms_per_seq_output_token:.3f}'
                     )

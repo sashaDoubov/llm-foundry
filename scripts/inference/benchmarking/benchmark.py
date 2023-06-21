@@ -92,12 +92,13 @@ def main(config):
         model.to(device=device, dtype=model_dtype)
 
     n_params = sum(p.numel() for p in model.parameters())
-    print('n_params is: ', n_params)
+    if config.device == 0:
+        print('n_params is: ', n_params)
 
-    print(
-        'name, latency (s), throughput (tokens/s), latency_per_sequence_output_token (ms)'
-    )
-    print('=' * 75)
+        print(
+            'name, latency (s), throughput (tokens/s), latency_per_sequence_output_token (ms)'
+        )
+        print('=' * 75)
 
     for batch_size in config.batch_sizes:
         for input_length in config.input_lengths:
@@ -134,9 +135,10 @@ def main(config):
                 ms_per_seq_output_token = mean_time * 1000 / output_length
 
                 run_name = f'{config.benchmark_name}_{batch_size}_{input_length}_{output_length}'
-                print(
-                    f'{run_name}, {mean_time:.3f}, {tokens_per_second:.3f}, {ms_per_seq_output_token:.3f}'
-                )
+                if config.device == 0:
+                    print(
+                        f'{run_name}, {mean_time:.3f}, {tokens_per_second:.3f}, {ms_per_seq_output_token:.3f}'
+                    )
 
 
 if __name__ == '__main__':

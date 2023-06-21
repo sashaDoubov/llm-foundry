@@ -49,17 +49,19 @@ def main(config):
         print('NOT using autocast...')
 
     if config.use_deepspeed:
-        print("Using TP!")
+        print('Using TP!')
         from llmfoundry.models.layers import MPTBlock
         inference_config = {
             'replace_with_kernel_inject': False,
             'dtype': model_dtype,
             'replace_method': 'auto',
-            'injection_policy': {MPTBlock: ('attn.out_proj', 'ffn.down_proj')},
+            'injection_policy': {
+                MPTBlock: ('attn.out_proj', 'ffn.down_proj')
+            },
             'tensor_parallel': {
                 'tp_size': config.num_devices
             },
-    }
+        }
         print(f"{inference_config['tensor_parallel']['tp_size']=}")
 
     else:
@@ -72,7 +74,6 @@ def main(config):
                 'tp_size': 0
             },
         }
-
 
     composer_model = COMPOSER_MODEL_REGISTRY[config.model.name](
         config.model, config.tokenizer)
@@ -139,14 +140,14 @@ def main(config):
 
 
 if __name__ == '__main__':
-    using_deepseed = any("local_rank" in arg for arg in sys.argv)
+    using_deepseed = any('local_rank' in arg for arg in sys.argv)
     if using_deepseed:
         import os
         print(sys.argv)
         yaml_path = sys.argv[2]
-        rank = int(sys.argv[1][len("--local_rank="):])
+        rank = sys.argv[1][len('--local_rank='):]
         args_list = sys.argv[3:]
-        os.environ["RANK"] = rank
+        os.environ['RANK'] = rank
     else:
         yaml_path, args_list = sys.argv[1], sys.argv[2:]
     with open(yaml_path) as f:
@@ -154,5 +155,5 @@ if __name__ == '__main__':
     cli_config = om.from_cli(args_list)
     config = om.merge(yaml_config, cli_config)
     if using_deepseed:
-        config.device = rank
+        config.device = int(rank)
     main(config)

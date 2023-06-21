@@ -3,6 +3,7 @@
 
 """Attention layers."""
 
+import os
 import math
 import warnings
 from typing import Optional
@@ -567,9 +568,10 @@ def attn_bias_shape(attn_impl, n_heads, seq_len, alibi, prefix_lm, causal,
         return None
     elif attn_impl in ['torch', 'triton']:
         if alibi:
+            world_size = int(os.environ.get("WORLD_SIZE", 1))
             if (prefix_lm or not causal) or use_sequence_id:
-                return (1, n_heads, seq_len, seq_len)
-            return (1, n_heads, 1, seq_len)
+                return (1, n_heads // world_size, seq_len, seq_len)
+            return (1, n_heads // world_size, 1, seq_len)
         elif prefix_lm or use_sequence_id:
             return (1, 1, seq_len, seq_len)
         return None
@@ -590,11 +592,13 @@ def build_attn_bias(
         return None
     elif attn_impl in ['torch', 'triton']:
         if alibi:
+            world_size = int(os.environ.get("WORLD_SIZE", 1))
+            rank = int(os.environ.get("RANK", 0))
             # in place add alibi to attn bias
             device, dtype = attn_bias.device, attn_bias.dtype
             attn_bias = attn_bias.add(
                 build_alibi_bias(
-                    n_heads,
+                    n_heads // world_size,
                     seq_len,
                     full=not causal,
                     alibi_bias_max=alibi_bias_max,
@@ -606,9 +610,10 @@ def build_attn_bias(
         raise ValueError(f'{attn_impl=} is an invalid setting.')
 
 
-def gen_slopes(n_heads, alibi_bias_max=8, device=None):
-    _n_heads = 2**math.ceil(math.log2(n_heads))
-    m = torch.arange(1, _n_heads + 1, dtype=torch.float32, device=device)
+def gen_slopes(n_heads, alibi_bias_max=8, device=None, rank=0):
+    _n_heads_start = 2**math.ceil(math.log2(max(1, n_heads * rank)))
+    _n_heads = 2**math.ceil(math.log2(n_heads * (rank + 1)))
+    m = torch.arange(_n_heads_start, _n_heads + 1, dtype=torch.float32, device=device)
     m = m.mul(alibi_bias_max / _n_heads)
     slopes = (1. / torch.pow(2, m))
 

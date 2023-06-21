@@ -139,7 +139,13 @@ def main(config):
 
 
 if __name__ == '__main__':
-    yaml_path, args_list = sys.argv[1], sys.argv[2:]
+    if any("local_rank" in arg for arg in sys.argv):
+        print(sys.argv)
+        yaml_path = sys.argv[2]
+        rank = int(sys.argv[1][len("--local_rank="):])
+        args_list = sys.argv[3:]
+    else:
+        yaml_path, args_list = sys.argv[1], sys.argv[2:]
     with open(yaml_path) as f:
         yaml_config = om.load(f)
     cli_config = om.from_cli(args_list)

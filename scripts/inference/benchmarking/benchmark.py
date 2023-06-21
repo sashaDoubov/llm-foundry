@@ -60,6 +60,7 @@ def main(config):
                 'tp_size': config.num_devices
             },
     }
+        print(f"{inference_config['tensor_parallel']['tp_size']=}")
 
     else:
         inference_config = {

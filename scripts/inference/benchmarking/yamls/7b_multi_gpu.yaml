@@ -11,7 +11,7 @@ tokenizer:
 
 model:
   name: mpt_causal_lm
-  init_device: cpu
+  init_device: meta #cpu
   tokenizer_name: ${tokenizer_name}
   d_model: 4096
   n_heads: 32
@@ -30,15 +30,13 @@ model:
 device: null
 model_dtype: bf16
 autocast_dtype: null
-use_deepspeed: false
+use_deepspeed: true
+num_devices: 2
 
-# batch_sizes: [1, 2, 4, 8, 16, 32, 64]
-# input_lengths: [128]
-# output_lengths: [8]
-batch_sizes: [1] #[1, 2, 4, 8, 16, 32, 64]
-input_lengths: [512]
-output_lengths: [1]
+batch_sizes: [1, 2, 4, 8, 16, 32, 64]
+input_lengths: [128]
+output_lengths: [8]
 use_cache: true
 
-num_batches: 1
-num_warmup_batches: 0
+num_batches: 5
+num_warmup_batches: 3

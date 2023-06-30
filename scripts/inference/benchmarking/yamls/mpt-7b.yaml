@@ -1,0 +1,60 @@
+benchmark_name: mpt-7b-7B_1xA100-80GB-bf16-GPT-7B
+
+max_seq_len: 2048
+
+model_name_or_path: mosaicml/mpt-7b
+precision: bf16
+
+
+  # Tokenizer
+tokenizer:
+  name: ${model_name_or_path}
+  kwargs:
+    model_max_length: ${max_seq_len}
+
+model:
+  name: hf_causal_lm
+  pretrained_model_name_or_path: ${model_name_or_path}
+  init_device: meta #cpu
+  pretrained: true
+  vocab_size: 50368
+  use_auth_token: false
+  config_overrides:
+    pad_token_id: null
+    eos_token_id: null
+    # use_cache: false
+    # multi_query: false
+    # alibi: true
+
+
+# # Tokenizer
+# tokenizer:
+#   name: ${model_name_or_path}
+#   kwargs:
+#     model_max_length: ${max_seq_len}
+#     pad_token: <|endoftext|>
+
+# model:
+#   name: hf_causal_lm
+#   vocab_size: 65024
+#   pretrained_model_name_or_path: ${model_name_or_path}
+#   init_device: cpu
+#   pretrained: false
+
+device: null
+model_dtype: bf16
+autocast_dtype: null
+use_deepspeed: true
+
+batch_sizes: [1] #[1, 2, 4, 8, 16, 32, 64]
+input_lengths: [512]
+output_lengths: [64]
+# output_lengths: [2]
+use_cache: true
+num_devices: 2
+
+num_batches: 5
+num_warmup_batches: 3
+
+# num_batches: 1
+# num_warmup_batches: 0

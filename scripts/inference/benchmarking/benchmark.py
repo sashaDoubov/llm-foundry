@@ -74,7 +74,9 @@ def main(config):
     else:
         model.to(device=device, dtype=model_dtype)
 
-    model = torch.compile(model)
+    model = torch.compile(model, mode='reduce-overhead')
+
+    print(model)
 
     n_params = sum(p.numel() for p in model.parameters())
     print('n_params is: ', n_params)

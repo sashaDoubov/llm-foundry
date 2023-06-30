@@ -32,13 +32,10 @@ model_dtype: bf16
 autocast_dtype: null
 use_deepspeed: false
 
-# batch_sizes: [1, 2, 4, 8, 16, 32, 64]
-# input_lengths: [128]
-# output_lengths: [8]
-batch_sizes: [1] #[1, 2, 4, 8, 16, 32, 64]
-input_lengths: [512]
-output_lengths: [1]
+batch_sizes: [1, 2, 4, 8, 16, 32, 64]
+input_lengths: [128]
+output_lengths: [8]
 use_cache: true
 
-num_batches: 1
-num_warmup_batches: 0
+num_batches: 5
+num_warmup_batches: 3

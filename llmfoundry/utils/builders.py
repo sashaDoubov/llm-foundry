@@ -87,7 +87,25 @@ def build_algorithm(name, kwargs):
 
 def build_optimizer(cfg, model):
     if cfg.name == 'decoupled_adamw':
-        param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
+        group_1 = []
+        group_2 = []
+
+        for i, param in enumerate(model.parameters()):
+            if i % 2 == 0:
+                group_1.append(param)
+            else:
+                group_2.append(param)
+        print(len(group_1))
+        print(len(group_2))
+
+        print(group_1[0].shape)
+        print(group_2[0].shape)
+
+        param_groups = [
+            {'params' : group_1, 'lr' : 0.1},
+            {'params' : group_2, 'lr' : 0.2},
+        ]
+
         return DecoupledAdamW(param_groups,
                               lr=cfg.lr,
                               betas=cfg.betas,

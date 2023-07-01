@@ -347,6 +347,7 @@ class MultiheadAttention(nn.Module):
         softmax_scale: Optional[float] = None,
         attn_pdrop: float = 0.0,
         low_precision_layernorm: bool = False,
+        zero_init_query: bool = False,
         verbose: int = 0,
         device: Optional[str] = None,
     ):
@@ -367,6 +368,7 @@ class MultiheadAttention(nn.Module):
         # for param init fn; enables shape based init of fused layers
         fuse_splits = (d_model, 2 * d_model)
         self.Wqkv._fused = (0, fuse_splits)  # type: ignore
+        self.Wqkv._zero_init_query = zero_init_query
 
         if self.qk_ln:
             layernorm_class = LPLayerNorm if low_precision_layernorm else nn.LayerNorm
@@ -457,6 +459,7 @@ class MultiQueryAttention(nn.Module):
         softmax_scale: Optional[float] = None,
         attn_pdrop: float = 0.0,
         low_precision_layernorm: bool = False,
+        zero_init_query: bool = False,
         verbose: int = 0,
         device: Optional[str] = None,
     ):
@@ -486,6 +489,7 @@ class MultiQueryAttention(nn.Module):
         # for param init fn; enables shape based init of fused layers
         fuse_splits = (d_model, d_model + self.head_dim)
         self.Wqkv._fused = (0, fuse_splits)  # type: ignore
+        self.Wqkv._zero_init_query = zero_init_query
 
         if self.qk_ln:
             layernorm_class = LPLayerNorm if low_precision_layernorm else nn.LayerNorm

@@ -37,15 +37,20 @@ def fused_init_helper_(module: nn.Module, init_fn_):
 
     _fused = getattr(module, '_fused', None)
 
+    _zero_init_query = getattr('_zero_init_query', False)
+
     if _fused is None:
         raise RuntimeError(f'Internal logic error')
-
     dim, splits = _fused
     splits = (0, *splits, module.weight.size(dim))  # type: ignore
-    for s, e in zip(splits[:-1], splits[1:]):
+    for i, (s, e) in enumerate(zip(splits[:-1], splits[1:])):
         slice_indices = [slice(None)] * module.weight.ndim  # type: ignore
         slice_indices[dim] = slice(s, e)
-        init_fn_(module.weight[slice_indices])  # type: ignore
+        # making assumption that query matrix is first
+        if i == 0 and _zero_init_query:
+            torch.nn.init.zeros_(module.weight[slice_indices])
+        else:
+            init_fn_(module.weight[slice_indices])  # type: ignore
 
 
 def generic_param_init_fn_(

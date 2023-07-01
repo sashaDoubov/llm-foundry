@@ -50,6 +50,7 @@ class MPTBlock(nn.Module):
                 'attn_uses_sequence_id': False,
                 'alibi': False,
                 'alibi_bias_max': 8,
+                'zero_init_query': False
             },
             resid_pdrop: float = 0.0,
             norm_type: str = 'low_precision_layernorm',

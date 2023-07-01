@@ -18,6 +18,7 @@ attn_config_defaults: Dict = {
     'attn_uses_sequence_id': False,
     'alibi': False,
     'alibi_bias_max': 8,
+    'zero_init_query': False
 }
 
 init_config_defaults: Dict = {

@@ -37,7 +37,7 @@ def fused_init_helper_(module: nn.Module, init_fn_):
 
     _fused = getattr(module, '_fused', None)
 
-    _zero_init_query = getattr('_zero_init_query', False)
+    _zero_init_query = getattr(module, '_zero_init_query', False)
 
     if _fused is None:
         raise RuntimeError(f'Internal logic error')

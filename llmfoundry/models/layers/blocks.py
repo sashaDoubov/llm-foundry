@@ -70,6 +70,7 @@ class MPTBlock(nn.Module):
             qk_ln=attn_config['qk_ln'],
             softmax_scale=attn_config['softmax_scale'],
             attn_pdrop=attn_config['attn_pdrop'],
+            zero_init_query=attn_config['zero_init_query'],
             d_model=d_model,
             n_heads=n_heads,
             verbose=verbose,

@@ -49,6 +49,7 @@ def fused_init_helper_(module: nn.Module, init_fn_):
         # making assumption that query matrix is first
         if i == 0 and _zero_init_query:
             torch.nn.init.zeros_(module.weight[slice_indices])
+            print("initializing with zeros!")
         else:
             init_fn_(module.weight[slice_indices])  # type: ignore
 

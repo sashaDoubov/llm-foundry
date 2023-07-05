@@ -44,6 +44,7 @@ def scaled_multihead_dot_product_attention(
     training=False,
     needs_weights=False,
     multiquery=False,
+    repeat_instead_of_expand=False
 ):
     q = rearrange(query, 'b s (h d) -> b h s d', h=n_heads)
     kv_n_heads = 1 if multiquery else n_heads
@@ -147,6 +148,7 @@ def flash_attn_fn(
     training=False,
     needs_weights=False,
     multiquery=False,
+    repeat_instead_of_expand=False
 ):
     try:
         from flash_attn import bert_padding, flash_attn_interface  # type: ignore # yapf: disable # isort: skip
@@ -241,6 +243,7 @@ def triton_flash_attn_fn(
     training=False,
     needs_weights=False,
     multiquery=False,
+    repeat_instead_of_expand=False
 ):
     try:
         from llmfoundry.models.layers.flash_attn_triton import flash_attn_func
@@ -318,8 +321,14 @@ def triton_flash_attn_fn(
         # - pytorch docs
         #
         # hopefully the kernels can utilize this and we're jot just wasting BW here
-        key = key.expand(*key.shape[:2], n_heads, key.size(-1))
-        value = value.expand(*value.shape[:2], n_heads, value.size(-1))
+
+        if repeat_instead_of_expand:
+            key = key.repeat(1, 1, n_heads, 1)
+            value = value.repeat(1, 1, n_heads, 1)
+        else:
+            key = key.expand(*key.shape[:2], n_heads, key.size(-1))
+            value = value.expand(*value.shape[:2], n_heads, value.size(-1))
+
 
     reset_is_causal = _reset_is_causal(query.size(1), key.size(1), is_causal)
     attn_output = flash_attn_func(query, key, value, attn_bias, reset_is_causal,
@@ -348,6 +357,7 @@ class MultiheadAttention(nn.Module):
         attn_pdrop: float = 0.0,
         low_precision_layernorm: bool = False,
         zero_init_query: bool = False,
+        repeat_instead_of_expand=False,
         verbose: int = 0,
         device: Optional[str] = None,
     ):
@@ -460,6 +470,7 @@ class MultiQueryAttention(nn.Module):
         attn_pdrop: float = 0.0,
         low_precision_layernorm: bool = False,
         zero_init_query: bool = False,
+        repeat_instead_of_expand=False,
         verbose: int = 0,
         device: Optional[str] = None,
     ):
@@ -476,6 +487,7 @@ class MultiQueryAttention(nn.Module):
         if self.softmax_scale is None:
             self.softmax_scale = 1 / math.sqrt(self.head_dim)
         self.attn_dropout_p = attn_pdrop
+        self.repeat_instead_of_expand = repeat_instead_of_expand
 
         # NOTE: if we ever want to make attn TensorParallel, I'm pretty sure we'll
         # want to split Wqkv into Wq and Wkv where Wq can be TensorParallel but
@@ -560,6 +572,7 @@ class MultiQueryAttention(nn.Module):
             training=self.training,
             needs_weights=needs_weights,
             multiquery=True,
+            repeat_instead_of_expand=self.repeat_instead_of_expand
         )
 
         return self.out_proj(context), attn_weights, past_key_value

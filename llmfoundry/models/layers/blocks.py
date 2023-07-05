@@ -50,7 +50,8 @@ class MPTBlock(nn.Module):
                 'attn_uses_sequence_id': False,
                 'alibi': False,
                 'alibi_bias_max': 8,
-                'zero_init_query': False
+                'zero_init_query': False,
+                'repeat_instead_of_expand': False
             },
             resid_pdrop: float = 0.0,
             norm_type: str = 'low_precision_layernorm',
@@ -71,6 +72,7 @@ class MPTBlock(nn.Module):
             softmax_scale=attn_config['softmax_scale'],
             attn_pdrop=attn_config['attn_pdrop'],
             zero_init_query=attn_config['zero_init_query'],
+            repeat_instead_of_expand=attn_config['repeat_instead_of_expand'],
             d_model=d_model,
             n_heads=n_heads,
             verbose=verbose,

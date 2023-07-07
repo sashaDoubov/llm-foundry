@@ -1388,7 +1388,7 @@ def test_hf_init(tmp_path,
 
 
 @pytest.mark.gpu
-def test_d_model_8_triton_mqa_attn(batch_size=2):
+def test_head_dim_8_triton_mqa_attn(batch_size=2):
     test_cfg = get_config(conf_path='scripts/train/yamls/pretrain/testing.yaml')
     test_cfg.device = torch.cuda.current_device()
 

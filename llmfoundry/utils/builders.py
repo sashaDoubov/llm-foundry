@@ -15,7 +15,7 @@ from composer.loggers import TensorboardLogger, WandBLogger
 from composer.optim import DecoupledAdamW
 from composer.optim.scheduler import (ConstantWithWarmupScheduler,
                                       CosineAnnealingWithWarmupScheduler,
-                                      LinearWithWarmupScheduler)
+                                      LinearWithWarmupScheduler, StepScheduler)
 from composer.utils import dist
 from omegaconf import DictConfig
 from omegaconf import OmegaConf as om
@@ -128,6 +128,9 @@ def build_scheduler(cfg):
     elif cfg.name == 'linear_decay_with_warmup':
         return LinearWithWarmupScheduler(t_warmup=cfg.t_warmup,
                                          alpha_f=cfg.alpha_f)
+    elif cfg.name == 'step_scheduler':
+        return StepScheduler(step_size=cfg.step_size, gamma=cfg.gamma)
+
     else:
         raise ValueError(f'Not sure how to build scheduler: {cfg.name}')
 

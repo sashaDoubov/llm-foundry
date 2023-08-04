@@ -22,8 +22,9 @@ from omegaconf import DictConfig, ListConfig
 from omegaconf import OmegaConf as om
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
-from llmfoundry.callbacks import (FDiffMetrics, Generate, GlobalLRScaling,
-                                  LayerFreezing, MonolithicCheckpointSaver,
+from llmfoundry.callbacks import (AverageICLLogger, FDiffMetrics, Generate,
+                                  GlobalLRScaling, LayerFreezing,
+                                  MonolithicCheckpointSaver,
                                   ScheduledGarbageCollector)
 from llmfoundry.optim import (DecoupledAdaLRLion, DecoupledClipLion,
                               DecoupledLionW)
@@ -34,6 +35,8 @@ def build_callback(name: str, kwargs: Dict[str, Any]):
         return LRMonitor()
     elif name == 'memory_monitor':
         return MemoryMonitor()
+    elif name == 'average_icl_logger':
+        return AverageICLLogger()
     elif name == 'speed_monitor':
         return SpeedMonitor(window_size=kwargs.get('window_size', 1),
                             gpu_flops_available=kwargs.get(

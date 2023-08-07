@@ -245,7 +245,7 @@ def build_text_dataloader(
 
     if hasattr(cfg.dataset, 'shuffle_block_size'):
         print(cfg.dataset.shuffle_block_size)
-        print(type(cfg.dataset.shuffle_block_size))
+        cfg.dataset.shuffle_block_size = int(cfg.dataset.shuffle_block_size)
 
     dataset = StreamingTextDataset(
         tokenizer=tokenizer,

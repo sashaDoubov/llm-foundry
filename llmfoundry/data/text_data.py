@@ -241,6 +241,12 @@ def build_text_dataloader(
             streams.append(Stream(**stream))
 
     # build dataset potentially with streams
+    print(cfg.dataset)
+
+    if hasattr(cfg.dataset, 'shuffle_block_size'):
+        print(cfg.dataset.shuffle_block_size)
+        print(type(cfg.dataset.shuffle_block_size))
+
     dataset = StreamingTextDataset(
         tokenizer=tokenizer,
         streams=streams,

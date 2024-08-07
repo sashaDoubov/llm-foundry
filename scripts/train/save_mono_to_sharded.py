@@ -548,7 +548,7 @@ def train(cfg: DictConfig) -> Trainer:
         spin_dataloaders=train_cfg.spin_dataloaders,
     )
 
-    trainer.state.fsdp_config['state_dict_type'] = 'sharded'
+    trainer.state.fsdp_config.state_dict_type = 'sharded'
 
     log.info('Not training. Only saving composer checkpoint.')
     trainer.save_checkpoint_to_save_folder()
